@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Construction Payment Tracker Pro - Quản Lý Thanh Toán & Khối Lượng Nghiệm Thu</title>
+  
+  <!-- Offline Tailwind CSS -->
+  <script src="./libs/tailwind.js"></script>
+  <script>
+    if (typeof tailwind !== 'undefined') {
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              brand: { 50: '#ecfdf5', 500: '#10b981', 600: '#059669', 700: '#047857' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Offline Font Awesome Icons -->
+  <link rel="stylesheet" href="./libs/fontawesome/all.min.css">
+
+  <!-- Offline SheetJS Library -->
+  <script src="./libs/xlsx.full.min.js"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- TOP HEADER -->
+  <header class="bg-slate-900/90 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-40 backdrop-blur-md">
+    
+    <!-- Left: Brand & Active Project -->
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-600/20">
+        <i class="fa-solid fa-file-invoice-dollar text-xl"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm sm:text-base font-extrabold text-white tracking-tight">Construction Payment Tracker Pro</h1>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">QL Thanh Toán & Khối Lượng Nghiệm Thu</span>
+        </div>
+        <p id="header-project-name" class="text-xs text-slate-400 truncate max-w-xs sm:max-w-md">Dự án: Xây dựng Trụ sở làm việc Cơ quan 5 tầng</p>
+      </div>
+    </div>
+
+    <!-- Right: Quick Actions -->
+    <div class="flex items-center gap-2">
+      <!-- Demo Data Reset -->
+      <button id="btn-reset-demo" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition" title="Nạp lại dự án mẫu chuẩn">
+        <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+        <span class="hidden sm:inline">Dự Án Mẫu</span>
+      </button>
+
+      <!-- Import BOQ Excel -->
+      <input type="file" id="input-boq-file" accept=".xlsx, .xls, .csv" class="hidden">
+      <label for="input-boq-file" id="btn-open-boq" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition cursor-pointer" title="Nạp BOQ từ Excel">
+        <i class="fa-solid fa-file-excel text-emerald-400"></i>
+        <span>Nhập BOQ</span>
+      </label>
+
+      <!-- Export Multi-Sheet Excel -->
+      <button id="btn-export-full-excel" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/25 transition" title="Xuất toàn bộ báo cáo thanh toán ra Excel đa sheet">
+        <i class="fa-solid fa-download"></i>
+        <span>Xuất Excel Hồ Sơ</span>
+      </button>
+
+      <!-- Backup JSON -->
+      <button id="btn-backup-json" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition" title="Sao lưu toàn bộ dữ liệu ra file JSON">
+        <i class="fa-solid fa-cloud-arrow-down text-cyan-400"></i>
+        <span class="hidden md:inline">Sao Lưu</span>
+      </button>
+
+      <!-- Restore JSON -->
+      <input type="file" id="input-restore-json" accept=".json" class="hidden">
+      <label for="input-restore-json" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition cursor-pointer" title="Khôi phục dữ liệu từ file JSON">
+        <i class="fa-solid fa-cloud-arrow-up text-purple-400"></i>
+        <span class="hidden md:inline">Phục Hồi</span>
+      </label>
+
+      <!-- Theme Toggle -->
+      <button id="btn-theme-toggle" class="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition">
+        <i id="theme-icon" class="fa-solid fa-moon text-emerald-400"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- KPI SUMMARY STRIP (ALWAYS VISIBLE FOR QUICK DECISION MAKING) -->
+  <div class="bg-slate-900/60 border-b border-slate-800 px-4 py-3">
+    <div class="max-w-[1600px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+      
+      <!-- KPI 1 -->
+      <div class="p-3 rounded-2xl bg-slate-900 border border-slate-800/80">
+        <div class="text-slate-400 flex items-center justify-between">
+          <span>Tổng Giá Trị HĐ Duyệt</span>
+          <i class="fa-solid fa-file-contract text-emerald-400"></i>
+        </div>
+        <div id="kpi-contract-total" class="text-sm sm:text-base font-extrabold text-white mt-1 font-mono">0 đ</div>
+        <div id="kpi-contract-sub" class="text-[11px] text-slate-500 mt-0.5 truncate">Gốc: 0 | PS: 0</div>
+      </div>
+
+      <!-- KPI 2 -->
+      <div class="p-3 rounded-2xl bg-slate-900 border border-slate-800/80">
+        <div class="text-slate-400 flex items-center justify-between">
+          <span>Lũy Kế Đã Nghiệm Thu</span>
+          <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        </div>
+        <div id="kpi-accepted-total" class="text-sm sm:text-base font-extrabold text-emerald-400 mt-1 font-mono">0 đ</div>
+        <div id="kpi-accepted-pct" class="text-[11px] text-emerald-500 font-semibold mt-0.5">0.0% Tổng HĐ</div>
+      </div>
+
+      <!-- KPI 3 -->
+      <div class="p-3 rounded-2xl bg-slate-900 border border-slate-800/80">
+        <div class="text-slate-400 flex items-center justify-between">
+          <span>Dự Kiến Khối Lượng Còn Lại</span>
+          <i class="fa-solid fa-hourglass-half text-amber-400"></i>
+        </div>
+        <div id="kpi-remaining-total" class="text-sm sm:text-base font-extrabold text-cyan-400 mt-1 font-mono">0 đ</div>
+        <div id="kpi-remaining-sub" class="text-[11px] text-slate-400 mt-0.5">0% còn lại</div>
+      </div>
+
+      <!-- KPI 4 -->
+      <div class="p-3 rounded-2xl bg-slate-900 border border-slate-800/80">
+        <div class="text-slate-400 flex items-center justify-between">
+          <span>Thực Nhận / Tiền Về</span>
+          <i class="fa-solid fa-money-bill-transfer text-purple-400"></i>
+        </div>
+        <div id="kpi-paid-total" class="text-sm sm:text-base font-extrabold text-white mt-1 font-mono">0 đ</div>
+        <div id="kpi-debt-sub" class="text-[11px] text-amber-400 font-medium mt-0.5 truncate">CĐT còn nợ: 0 đ</div>
+      </div>
+
+    </div>
+
+    <!-- Progress bar -->
+    <div class="max-w-[1600px] mx-auto mt-2.5 flex items-center gap-3">
+      <div class="flex-1 bg-slate-800 rounded-full h-2 overflow-hidden">
+        <div id="progress-bar-accepted" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+      </div>
+      <span id="progress-bar-text" class="text-[11px] font-mono text-slate-400 whitespace-nowrap">Tiến độ nghiệm thu: 0.0%</span>
+    </div>
+  </div>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="bg-slate-900/80 border-b border-slate-800 px-4 py-2 flex items-center gap-2 overflow-x-auto text-xs font-medium sticky top-[57px] z-30 backdrop-blur-md">
+    <button class="nav-tab active px-3.5 py-2 rounded-xl flex items-center gap-2 bg-emerald-600 text-white font-bold shadow-md shadow-emerald-600/25 transition" data-tab="tab-dashboard">
+      <i class="fa-solid fa-chart-pie"></i>
+      <span>1. Tổng Quan & Lịch Sử Dòng Tiền</span>
+    </button>
+    <button class="nav-tab px-3.5 py-2 rounded-xl text-slate-400 hover:text-white flex items-center gap-2 transition hover:bg-slate-800" data-tab="tab-contract">
+      <i class="fa-solid fa-file-lines text-emerald-400"></i>
+      <span>2. Hợp Đồng & Danh Mục BOQ</span>
+    </button>
+    <button class="nav-tab px-3.5 py-2 rounded-xl text-slate-400 hover:text-white flex items-center gap-2 transition hover:bg-slate-800" data-tab="tab-payment">
+      <i class="fa-solid fa-calculator text-amber-400"></i>
+      <span>3. Trung Tâm Áp Khối Lượng Thanh Toán</span>
+    </button>
+    <button class="nav-tab px-3.5 py-2 rounded-xl text-slate-400 hover:text-white flex items-center gap-2 transition hover:bg-slate-800" data-tab="tab-remaining">
+      <i class="fa-solid fa-chart-line text-cyan-400"></i>
+      <span>4. Dự Kiến Còn Lại & Cảnh Báo</span>
+    </button>
+    <button class="nav-tab px-3.5 py-2 rounded-xl text-slate-400 hover:text-white flex items-center gap-2 transition hover:bg-slate-800" data-tab="tab-export">
+      <i class="fa-solid fa-stamp text-purple-400"></i>
+      <span>5. Xuất Báo Cáo & In Ấn Biểu Mẫu</span>
+    </button>
+  </nav>
+
+  <!-- MAIN TAB CONTENT CONTAINER -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-6 overflow-y-auto space-y-6">
+    <!-- ==================== TAB 1: TỔNG QUAN & LỊCH SỬ DÒNG TIỀN ==================== -->
+    <section id="tab-dashboard" class="tab-content space-y-6">
+      <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-emerald-400"></i>
+              Lịch Sử Dòng Tiền Các Đợt Thanh Toán Đã Lập
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Theo dõi xuyên suốt tiến độ nghiệm thu, thu hồi tạm ứng và dòng tiền giải ngân qua từng kỳ</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <button onclick="switchTab('tab-payment')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition flex items-center gap-1.5 shadow">
+              <i class="fa-solid fa-plus"></i>
+              <span>Vào Kỳ Nghiệm Thu Hiện Tại</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-800">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-900 text-slate-300 font-semibold border-b border-slate-800">
+              <tr>
+                <th class="p-3 text-center w-10">STT</th>
+                <th class="p-3 w-24">Mã Đợt</th>
+                <th class="p-3 min-w-[280px]">Tên Đợt Thanh Toán & Thời Gian</th>
+                <th class="p-3 text-center w-28">Trạng Thái</th>
+                <th class="p-3 text-right w-36">Giá Trị Nghiệm Thu (đ)</th>
+                <th class="p-3 text-right w-32 text-amber-400">Thu Hồi Tạm Ứng (đ)</th>
+                <th class="p-3 text-right w-32 text-cyan-400">Giữ Bảo Hành (đ)</th>
+                <th class="p-3 text-right w-36 text-emerald-400 font-bold">Đề Nghị Thanh Toán (đ)</th>
+                <th class="p-3 text-center w-28">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-milestones-body" class="divide-y divide-slate-800/80 text-slate-200">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: HỢP ĐỒNG & DANH MỤC BOQ ==================== -->
+    <section id="tab-contract" class="tab-content space-y-6 hidden">
+      
+      <!-- Project Info Card -->
+      <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h2 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-building-circle-check text-emerald-400"></i>
+            Thông Tin Hợp Đồng & Điều Kiện Thanh Toán
+          </h2>
+          <span class="text-[11px] text-slate-400">Mẫu chuẩn theo Nghị định 99/2021/NĐ-CP & Quản lý HĐ Xây dựng</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">Tên Công Trình / Dự Án <span class="text-rose-400">*</span></label>
+            <input type="text" id="proj-name" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Mã Dự Án / Mã Hiệu</label>
+            <input type="text" id="proj-code" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Gói Thầu Thi Công</label>
+            <input type="text" id="proj-package" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Chủ Đầu Tư / Ban QLDA</label>
+            <input type="text" id="proj-investor" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Nhà Thầu Thi Công</label>
+            <input type="text" id="proj-contractor" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Đơn Vị Tư Vấn Giám Sát</label>
+            <input type="text" id="proj-supervision" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Số Hợp Đồng & Ngày Ký</label>
+            <input type="text" id="proj-contract-no" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-emerald-500">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-400 mb-1">% Tạm Ứng HĐ</label>
+              <div class="relative">
+                <input type="number" id="proj-advance-pct" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500">
+                <span class="absolute right-2.5 top-2 text-slate-500">%</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">% Giữ Bảo Hành</label>
+              <div class="relative">
+                <input type="number" id="proj-retention-pct" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500">
+                <span class="absolute right-2.5 top-2 text-slate-500">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">Tổng Số Tiền Đã Tạm Ứng (VNĐ) - Dùng để theo dõi mức thu hồi còn lại:</label>
+            <input type="number" id="proj-advance-amount" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-500">
+          </div>
+          <div class="flex items-end">
+            <p class="text-[11px] text-slate-400 italic">
+              <i class="fa-solid fa-circle-info text-emerald-400 mr-1"></i> Số liệu được tự động lưu sau mỗi lần bạn chỉnh sửa.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drag & Drop Upload Excel BOQ -->
+      <input type="file" id="input-boq-dropzone" accept=".xlsx, .xls, .csv" class="hidden">
+      <label for="input-boq-dropzone" id="dropzone-boq" class="block p-5 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-900/80 border-2 border-dashed border-slate-700 hover:border-emerald-500 transition shadow-lg text-center cursor-pointer group">
+        <div class="flex items-center justify-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:scale-110 transition pointer-events-none">
+            <i class="fa-solid fa-file-excel text-xl"></i>
+          </div>
+          <div class="text-left pointer-events-none">
+            <h3 class="text-xs sm:text-sm font-bold text-white">Nạp Danh Mục Dự Toán / Bảng Giá Hợp Đồng (BOQ) Từ File Excel</h3>
+            <p class="text-[11px] text-slate-400">Bấm vào đây hoặc kéo thả file Excel (.xlsx, .xls, .csv) để tự động nhận diện cột</p>
+          </div>
+        </div>
+      </label>
+
+      <!-- BOQ Items Table Card -->
+      <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-list-ol text-emerald-400"></i>
+              Bảng Danh Mục Khối Lượng Hợp Đồng & Phát Sinh (BOQ)
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Bạn có thể chỉnh sửa trực tiếp tên, khối lượng và đơn giá ngay trong bảng</p>
+          </div>
+
+          <div class="flex items-center gap-2 text-xs">
+            <button id="btn-add-boq-item" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition flex items-center gap-1.5 shadow-md shadow-emerald-600/20">
+              <i class="fa-solid fa-plus"></i> Thêm Đầu Việc
+            </button>
+            <span class="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-mono">
+              Tổng Giá Trị HĐ Duyệt: <strong id="stat-boq-grand-total" class="text-emerald-400 font-bold">0 đ</strong>
+            </span>
+          </div>
+        </div>
+
+        <!-- BOQ Table -->
+        <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-[500px]">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-900 text-slate-300 font-semibold sticky top-0 z-10 border-b border-slate-800">
+              <tr>
+                <th class="p-2.5 text-center w-10">STT</th>
+                <th class="p-2.5 w-24">Mã Hiệu</th>
+                <th class="p-2.5 min-w-[280px]">Nội Dung Công Tác Xây Dựng</th>
+                <th class="p-2.5 text-center w-16">ĐVT</th>
+                <th class="p-2.5 text-right w-24">KL Gốc</th>
+                <th class="p-2.5 text-right w-24 text-amber-400">Phát Sinh (+/-)</th>
+                <th class="p-2.5 text-right w-28 text-emerald-400">KL Duyệt</th>
+                <th class="p-2.5 text-right w-32">Đơn Giá HĐ (đ)</th>
+                <th class="p-2.5 text-right w-36">Thành Tiền HĐ (đ)</th>
+                <th class="p-2.5 text-center w-14">Xóa</th>
+              </tr>
+            </thead>
+            <tbody id="boq-table-body" class="divide-y divide-slate-800/80 text-slate-200">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== TAB 3: TRUNG TÂM THANH TOÁN & ÁP KHỐI LƯỢNG ==================== -->
+    <section id="tab-payment" class="tab-content space-y-6 hidden">
+      
+      <!-- Milestone Control Hub -->
+      <div class="p-5 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-900/90 border border-slate-800 shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-3">
+            <div>
+              <label class="block text-[11px] text-slate-400 font-semibold mb-1">Chọn Đợt Thanh Toán:</label>
+              <select id="select-active-milestone" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-xs focus:outline-none focus:border-amber-500 max-w-sm sm:max-w-md truncate">
+                <!-- Rendered dynamically -->
+              </select>
+            </div>
+            <div class="flex items-end gap-1.5 pt-4">
+              <button id="btn-add-milestone" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition flex items-center gap-1.5" title="Tạo đợt thanh toán mới">
+                <i class="fa-solid fa-plus"></i> Tạo Đợt Mới
+              </button>
+              <button id="btn-delete-milestone" class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 text-xs border border-slate-700 transition" title="Xóa đợt hiện tại">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 text-xs">
+            <button id="btn-auto-fill-remaining" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold border border-slate-700 transition" title="Tự động áp toàn bộ khối lượng còn lại vào đợt này">
+              <i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Áp 100% KL Còn Lại
+            </button>
+            <button id="btn-clear-period-quantities" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 transition" title="Xóa trắng số liệu kỳ này">
+              <i class="fa-solid fa-eraser mr-1"></i> Xóa Trắng Kỳ Này
+            </button>
+          </div>
+        </div>
+
+        <!-- Milestone Configuration Fields -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs">
+          <div class="lg:col-span-2">
+            <label class="block text-slate-400 mb-1">Tên Đợt Thanh Toán</label>
+            <input type="text" id="ms-name" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-semibold focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Mã Đợt (VD: DOT-01)</label>
+            <input type="text" id="ms-code" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Từ Ngày</label>
+            <input type="date" id="ms-start-date" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Đến Ngày (Chốt Nghiệm Thu)</label>
+            <input type="date" id="ms-end-date" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-amber-300 font-bold focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Trạng Thái Hồ Sơ</label>
+            <select id="ms-status" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-amber-500">
+              <option value="draft">Dự Thảo</option>
+              <option value="inspected">Đã Nghiệm Thu</option>
+              <option value="approved">Đã Ký Duyệt Hồ Sơ</option>
+              <option value="paid">Đã Giải Ngân / Nhận Tiền</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Overrun Warning Banner (Dynamic) -->
+      <div id="banner-overrun-warning" class="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/50 shadow-lg hidden flex items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-white">CẢNH BÁO: PHÁT HIỆN <span id="text-overrun-count" class="text-rose-400">0</span> CÔNG TÁC VƯỢT KHỐI LƯỢNG HỢP ĐỒNG!</h4>
+            <p class="text-slate-300 text-[11px] mt-0.5">Tổng giá trị khối lượng vượt hạn mức: <strong id="text-overrun-amount" class="text-rose-400 font-mono">0 đ</strong>. Vui lòng kiểm tra lại số liệu hoặc lập Phụ lục hợp đồng bổ sung.</p>
+          </div>
+        </div>
+        <button onclick="switchTab('tab-remaining')" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold transition shrink-0">
+          Xem Danh Sách Vượt
+        </button>
+      </div>
+
+      <!-- Core Payment Table Card -->
+      <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-calculator text-emerald-400"></i>
+              Bảng Áp Khối Lượng Nghiệm Thu & Tính Toán Dòng Tiền Kỳ Này
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Nhập số lượng thực hiện tại cột màu vàng ➔ Lũy kế, Khối lượng còn lại và Thành tiền sẽ tự động cập nhật</p>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-[550px]">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-900 text-slate-300 font-semibold sticky top-0 z-10 border-b border-slate-800">
+              <tr>
+                <th class="p-2 text-center w-8">STT</th>
+                <th class="p-2 w-20">Mã Hiệu</th>
+                <th class="p-2 min-w-[240px]">Nội Dung Công Việc</th>
+                <th class="p-2 text-center w-14">ĐVT</th>
+                <th class="p-2 text-right w-24 text-slate-400">KL HĐ Duyệt</th>
+                <th class="p-2 text-right w-24 text-slate-400 bg-slate-900/60">Lũy Kế Trước</th>
+                <th class="p-2 text-right w-28 bg-amber-500/10 text-amber-300 border-x border-amber-500/30 font-bold">KL KỲ NÀY</th>
+                <th class="p-2 text-right w-28 text-emerald-400">Lũy Kế Hết Kỳ</th>
+                <th class="p-2 text-right w-24 text-slate-300 bg-slate-900/60">KL CÒN LẠI</th>
+                <th class="p-2 text-right w-28 text-slate-400">Đơn Giá HĐ (đ)</th>
+                <th class="p-2 text-right w-32 text-emerald-400 font-bold">Thành Tiền Kỳ Này (đ)</th>
+                <th class="p-2 text-right w-32 text-cyan-300 font-bold">Giá Trị Còn Lại (đ)</th>
+                <th class="p-2 text-center w-24">Cảnh Báo</th>
+              </tr>
+            </thead>
+            <tbody id="payment-table-body" class="divide-y divide-slate-800/80 text-slate-200">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Financial Deductions Summary Bar (Chuẩn Nghiệp Vụ Kho Bạc / NĐ 99) -->
+        <div class="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800/60 to-slate-900 border border-slate-700/80 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-700/60 pb-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-coins"></i> Bảng Khấu Trừ & Đề Nghị Thanh Toán Đợt
+            </h3>
+            <span id="disp-debt-milestone" class="text-xs font-mono text-slate-300">CĐT đã trả: 0 đ | Còn nợ đợt này: 0 đ</span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+            
+            <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+              <span class="text-slate-400 block mb-1">1. Giá Trị Nghiệm Thu:</span>
+              <div id="sum-period-gross" class="text-sm font-bold text-white font-mono">0 đ</div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-slate-400">2. Thu Hồi Tạm Ứng:</span>
+                <div class="flex items-center gap-1">
+                  <input type="number" id="ms-adv-rate" class="w-10 bg-slate-800 border border-slate-700 rounded px-1 text-center text-amber-400 font-mono text-[11px]" value="20">%
+                </div>
+              </div>
+              <div id="sum-period-advance" class="text-sm font-bold text-amber-400 font-mono">0 đ</div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-slate-400">3. Giữ Bảo Hành:</span>
+                <div class="flex items-center gap-1">
+                  <input type="number" id="ms-ret-rate" class="w-10 bg-slate-800 border border-slate-700 rounded px-1 text-center text-cyan-400 font-mono text-[11px]" value="5">%
+                </div>
+              </div>
+              <div id="sum-period-retention" class="text-sm font-bold text-cyan-400 font-mono">0 đ</div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+              <span class="text-slate-400 block mb-1">4. Giảm Trừ Khác (đ):</span>
+              <input type="number" id="ms-other-deductions" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-0.5 text-rose-400 font-mono font-bold text-xs" value="0">
+              <div id="sum-period-other" class="text-[11px] text-slate-500 font-mono mt-1">-0 đ</div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 col-span-2 sm:col-span-1">
+              <span class="text-emerald-300 font-bold block mb-1 uppercase text-[11px]">5. THỰC NHẬN KỲ NÀY:</span>
+              <div id="sum-period-net" class="text-base font-extrabold text-emerald-400 font-mono">0 đ</div>
+            </div>
+
+          </div>
+
+          <!-- Payment Receipt Recording -->
+          <div class="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-2">
+              <label class="text-slate-400">Số tiền CĐT đã chuyển khoản vào tài khoản (đ):</label>
+              <input type="number" id="ms-paid-amount" class="w-44 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono font-bold" value="0">
+            </div>
+            <div class="text-[11px] text-slate-400 italic">
+              Khi CĐT chuyển tiền, bạn nhập vào đây để hệ thống tự động ghi nhận công nợ còn lại.
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+    <!-- ==================== TAB 4: DỰ KIẾN CÒN LẠI & CẢNH BÁO ==================== -->
+    <section id="tab-remaining" class="tab-content space-y-6 hidden">
+      
+      <!-- Summary Card -->
+      <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-2">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+            <i class="fa-solid fa-hourglass-half"></i>
+          </div>
+          <h2 class="text-sm font-bold text-white">Bảng Phân Tích & Dự Báo Khối Lượng Chưa Nghiệm Thu</h2>
+        </div>
+        <p id="remaining-summary-text" class="text-xs text-slate-300 leading-relaxed"></p>
+      </div>
+
+      <!-- Overrun Analysis Card (Alert) -->
+      <div id="card-overrun-analysis" class="p-5 rounded-2xl bg-rose-950/20 border border-rose-500/40 shadow-xl space-y-3 hidden">
+        <div class="flex items-center gap-2 text-rose-400">
+          <i class="fa-solid fa-triangle-exclamation text-base"></i>
+          <h3 class="text-sm font-bold">Danh Mục Công Tác Đã Nghiệm Thu Vượt Khối Lượng Hợp Đồng</h3>
+        </div>
+        <p class="text-xs text-slate-300">Các công việc dưới đây có lũy kế nghiệm thu lớn hơn khối lượng duyệt. Bạn cần rà soát để kịp thời ký Phụ lục bổ sung giá trị thanh toán.</p>
+        
+        <div class="overflow-x-auto rounded-xl border border-rose-500/30">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-rose-950/40 text-rose-300 font-semibold border-b border-rose-500/30">
+              <tr>
+                <th class="p-2.5 text-center w-10">STT</th>
+                <th class="p-2.5 w-24">Mã Hiệu</th>
+                <th class="p-2.5 min-w-[260px]">Nội Dung Công Tác</th>
+                <th class="p-2.5 text-center w-16">ĐVT</th>
+                <th class="p-2.5 text-right w-24">KL HĐ Duyệt</th>
+                <th class="p-2.5 text-right w-24">Lũy Kế Đã NT</th>
+                <th class="p-2.5 text-right w-28 text-rose-400 font-bold">Khối Lượng Vượt</th>
+                <th class="p-2.5 text-right w-36 text-rose-400 font-bold">Giá Trị Vượt (đ)</th>
+                <th class="p-2.5 text-center w-28">Giải Pháp</th>
+              </tr>
+            </thead>
+            <tbody id="overrun-items-body" class="divide-y divide-rose-500/20 font-mono">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Remaining Items Table (Sorted by Highest Value Descending) -->
+      <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-arrow-down-wide-short text-amber-400"></i>
+              Bảng Chi Tiết Công Tác Còn Lại (Xếp Theo Giá Trị Từ Cao Xuống Thấp)
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Giúp kỹ sư QS và Chỉ huy trưởng nắm bắt những đầu việc "nặng tiền" nhất để tập trung thi công và nghiệm thu</p>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-[500px]">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-900 text-slate-300 font-semibold sticky top-0 z-10 border-b border-slate-800">
+              <tr>
+                <th class="p-2.5 text-center w-10">STT</th>
+                <th class="p-2.5 w-24">Mã Hiệu</th>
+                <th class="p-2.5 min-w-[280px]">Nội Dung Công Tác</th>
+                <th class="p-2.5 text-center w-16">ĐVT</th>
+                <th class="p-2.5 text-right w-24 text-slate-400">KL HĐ</th>
+                <th class="p-2.5 text-right w-24 text-slate-400 bg-slate-900/60">Đã Nghiệm Thu</th>
+                <th class="p-2.5 text-right w-28 text-amber-300 font-bold">KL CÒN LẠI</th>
+                <th class="p-2.5 text-right w-28 text-slate-400">Đơn Giá HĐ (đ)</th>
+                <th class="p-2.5 text-right w-36 text-cyan-400 font-bold">GIÁ TRỊ CÒN LẠI (đ)</th>
+                <th class="p-2.5 text-center w-32">% Còn Lại</th>
+              </tr>
+            </thead>
+            <tbody id="remaining-table-body" class="divide-y divide-slate-800/80 text-slate-200">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== TAB 5: XUẤT HỒ SƠ & IN ẤN ==================== -->
+    <section id="tab-export" class="tab-content space-y-6 hidden">
+      
+      <!-- Document Selection Toolbar -->
+      <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400 font-medium">Chọn biểu mẫu in:</span>
+          <button id="btn-doc-pl03a" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow transition">
+            <i class="fa-solid fa-file-contract mr-1"></i> 1. Phụ Lục 03.a (Khối Lượng Hoàn Thành)
+          </button>
+          <button id="btn-doc-statement" class="px-3.5 py-1.5 rounded-xl bg-slate-800 text-slate-300 font-medium text-xs hover:bg-slate-700 transition">
+            <i class="fa-solid fa-stamp mr-1"></i> 2. Giấy Đề Nghị Thanh Toán
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="btn-print-doc" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/25 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-print"></i> In Ngay Biểu Mẫu Này (A4)
+          </button>
+        </div>
+      </div>
+
+      <!-- Printable A4 Preview Sheet -->
+      <div class="flex justify-center bg-slate-950 p-4 sm:p-8 rounded-2xl border border-slate-800 overflow-x-auto">
+        <div id="printable-canvas" class="bg-white text-black p-8 sm:p-12 w-full max-w-[950px] shadow-2xl rounded font-serif text-[12px] leading-relaxed min-h-[1050px]">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MODAL: SMART EXCEL BOQ MAPPER -->
+  <div id="modal-boq-mapper" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <i class="fa-solid fa-file-excel text-base"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Khớp Cột Dữ Liệu Excel BOQ</h3>
+            <p id="modal-filename-text" class="text-[11px] text-slate-400">File: du_toan.xlsx</p>
+          </div>
+        </div>
+        <button id="btn-close-boq-modal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Chọn Sheet Dữ Liệu:</label>
+            <select id="modal-select-sheet" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-medium focus:outline-none focus:border-emerald-500"></select>
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Dòng bắt đầu lấy đầu việc:</label>
+            <input type="number" id="modal-start-row" min="1" value="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono focus:outline-none focus:border-emerald-500">
+          </div>
+          <div class="flex items-end">
+            <div class="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg w-full">
+              <i class="fa-solid fa-circle-info mr-1"></i> Tự động nhận diện cột thông minh.
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 font-medium">
+          <div>
+            <label class="block text-slate-400 mb-1">Cột Mã Hiệu:</label>
+            <select id="map-col-code" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-emerald-400 font-mono"></select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Cột Tên Công Việc <span class="text-rose-400">*</span>:</label>
+            <select id="map-col-name" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-medium"></select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Cột Đơn Vị Tính:</label>
+            <select id="map-col-unit" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-300 font-mono"></select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Cột Khối Lượng <span class="text-rose-400">*</span>:</label>
+            <select id="map-col-qty" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-amber-300 font-mono"></select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Cột Đơn Giá (đ):</label>
+            <select id="map-col-price" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-300 font-mono"></select>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block text-slate-400 font-semibold">Xem trước các dòng thực tế từ file Excel:</label>
+          <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-52 bg-slate-950/60 font-mono text-[11px]">
+            <table class="w-full text-left border-collapse" id="modal-preview-table"></table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-slate-800 bg-slate-900/80 flex items-center justify-end gap-2">
+        <button id="btn-cancel-boq-modal" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+          Hủy Bỏ
+        </button>
+        <button id="btn-confirm-boq-modal" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-check"></i>
+          <span>Nạp Vào Bảng BOQ & Tính Toán Ngay</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- APPLICATION SCRIPTS -->
+  <script src="./js/state.js"></script>
+  <script src="./js/calculator.js"></script>
+  <script src="./js/excel-service.js"></script>
+  <script src="./js/ui-renderer.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>

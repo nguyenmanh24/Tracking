@@ -1,0 +1,29 @@
+﻿{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Chay Construction Payment Tracker (F5)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_app.py",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Chay FastAPI Server (Backend)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "backend.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000",
+        "--reload"
+      ],
+      "jinja": true,
+      "justMyCode": true
+    }
+  ]
+}
