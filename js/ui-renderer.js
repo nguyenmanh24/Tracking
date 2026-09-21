@@ -342,6 +342,194 @@ const UIRenderer = {
     });
   },
 
+  // --- 3B. RENDER TAB 3: XÁC NHẬN KHỐI LƯỢNG (CHỈ CÁC ĐẦU VIỆC CÓ PHÁT SINH KL) ---
+  renderConfirmQtyTab() {
+    const project = getActiveProject();
+    if (!project) return;
+    const activeMs = getActiveMilestone();
+    if (!activeMs) return;
+
+    const titleEl = document.getElementById('confirm-qty-ms-title');
+    if (titleEl) titleEl.textContent = `${activeMs.code || 'ĐỢT'}: ${activeMs.name}`;
+
+    const fin = Calculator.calculateMilestoneFinancials(project, activeMs);
+    const tbody = document.getElementById('confirm-qty-table-body');
+    if (!tbody || !fin) return;
+
+    // Filter ONLY items with thisPeriodQty > 0
+    const activeRows = fin.itemRows.filter(r => (r.thisPeriodQty || 0) > 0.0001 || (r.thisPeriodQty || 0) < -0.0001);
+
+    // Update Quick Stats
+    const countEl = document.getElementById('confirm-qty-count');
+    if (countEl) countEl.textContent = `${activeRows.length} / ${project.boqItems.length} đầu việc`;
+
+    const ratioEl = document.getElementById('confirm-qty-ratio');
+    if (ratioEl) {
+      const pct = project.boqItems.length > 0 ? (activeRows.length / project.boqItems.length) * 100 : 0;
+      ratioEl.textContent = `${pct.toFixed(1)}% BOQ`;
+    }
+
+    let chainageCount = 0;
+    activeRows.forEach(r => {
+      const ch = activeMs.chainageDetails ? activeMs.chainageDetails[r.itemId] : null;
+      if (ch && (ch.fromKm || ch.toKm || ch.note)) chainageCount++;
+    });
+    const chainageCountEl = document.getElementById('confirm-qty-chainage-count');
+    if (chainageCountEl) chainageCountEl.textContent = `${chainageCount} công tác`;
+
+    if (activeRows.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="10" class="p-8 text-center text-slate-500">
+            <div class="max-w-md mx-auto space-y-3">
+              <i class="fa-solid fa-folder-open text-3xl text-slate-600"></i>
+              <div class="text-sm font-semibold text-slate-300">Chưa có công tác nào phát sinh khối lượng trong đợt này</div>
+              <p class="text-xs text-slate-500">Bạn hãy bấm nút bên dưới để tải bảng Excel đợt thi công lên hoặc quay lại Tab 2 để nhập khối lượng.</p>
+              <div class="flex items-center justify-center gap-2 pt-2">
+                <button onclick="switchTab('tab-payment')" class="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition">
+                  <i class="fa-solid fa-file-excel mr-1"></i> Sang Tab 2 Nạp File Excel
+                </button>
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = activeRows.map((row, idx) => {
+      const chainage = activeMs.chainageDetails ? activeMs.chainageDetails[row.itemId] : null;
+      const hasChainage = chainage && (chainage.fromKm || chainage.toKm || chainage.note);
+
+      let chainageBadge = '';
+      if (hasChainage) {
+        chainageBadge = `
+          <div class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-cyan-950/80 text-cyan-300 border border-cyan-700/60 font-mono text-[11px] cursor-pointer hover:bg-cyan-900/50 transition" onclick="window.openChainageModal('${row.itemId}', '${activeMs.id}')" title="Bấm để sửa lý trình: ${escapeHtml(chainage.note || '')}">
+            <i class="fa-solid fa-location-dot text-cyan-400"></i>
+            <span>${escapeHtml(chainage.fromKm || '...')} &rarr; ${escapeHtml(chainage.toKm || '...')}</span>
+            ${chainage.position && chainage.position !== 'Toàn tuyến' ? `<span class="text-cyan-400/70">(${escapeHtml(chainage.position)})</span>` : ''}
+          </div>
+        `;
+      } else {
+        chainageBadge = `
+          <button class="text-xs text-slate-500 hover:text-cyan-400 flex items-center gap-1 transition py-1" onclick="window.openChainageModal('${row.itemId}', '${activeMs.id}')">
+            <i class="fa-solid fa-plus text-[10px]"></i> Gắn lý trình
+          </button>
+        `;
+      }
+
+      return `
+        <tr class="hover:bg-slate-800/40 transition group">
+          <td class="p-3 text-center text-slate-500 font-mono">${idx + 1}</td>
+          <td class="p-3 text-center font-mono font-bold text-emerald-400">${escapeHtml(row.code)}</td>
+          <td class="p-3 font-medium text-slate-200">
+            <div>${escapeHtml(row.name)}</div>
+          </td>
+          <td class="p-3 text-center font-mono text-slate-400">${escapeHtml(row.unit)}</td>
+          <td class="p-3 text-right font-mono text-slate-300">${formatQty(row.totalApprovedQty)}</td>
+          <td class="p-3 text-right font-mono text-slate-400">${formatQty(row.prevQty)}</td>
+          <td class="p-2 text-right border-x border-amber-500/30 bg-amber-500/10">
+            <input type="number" step="any" class="table-input-cell text-amber-300 font-bold text-xs input-confirm-period-qty" data-id="${row.itemId}" value="${row.thisPeriodQty}">
+          </td>
+          <td class="p-3 text-right font-mono font-bold ${row.isOverrun ? 'text-rose-400' : 'text-emerald-400'}">${formatQty(row.totalCumulativeQty)}</td>
+          <td class="p-3">${chainageBadge}</td>
+          <td class="p-3 text-center">
+            <div class="flex items-center justify-center gap-1.5">
+              <button class="p-1.5 rounded-lg bg-slate-800 hover:bg-cyan-900/40 text-slate-400 hover:text-cyan-300 transition" onclick="window.openChainageModal('${row.itemId}', '${activeMs.id}')" title="Sửa chi tiết khối lượng & lý trình">
+                <i class="fa-solid fa-pen text-xs"></i>
+              </button>
+              <button class="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition" onclick="window.clearItemFromMilestone('${row.itemId}')" title="Gỡ công việc này khỏi đợt">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    this.attachConfirmQtyEvents();
+  },
+
+  attachConfirmQtyEvents() {
+    const project = getActiveProject();
+    const activeMs = getActiveMilestone();
+    if (!project || !activeMs) return;
+
+    document.querySelectorAll('.input-confirm-period-qty').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const itemId = e.target.dataset.id;
+        const val = parseFloat(e.target.value) || 0;
+        activeMs.quantities[itemId] = val;
+        saveAppState();
+        UIRenderer.renderHeaderAndKPIs();
+      });
+      input.addEventListener('change', () => {
+        UIRenderer.renderAll();
+      });
+    });
+  },
+
+  // --- 3C. RENDER TAB 4: TỔNG HỢP GIÁ TRỊ THANH TOÁN KỲ NÀY ---
+  renderValueSummaryTab() {
+    const project = getActiveProject();
+    if (!project) return;
+    const activeMs = getActiveMilestone();
+    if (!activeMs) return;
+
+    const titleEl = document.getElementById('value-summary-ms-title');
+    if (titleEl) titleEl.textContent = `${activeMs.code || 'ĐỢT'}: ${activeMs.name}`;
+
+    const fin = Calculator.calculateMilestoneFinancials(project, activeMs);
+    const tbody = document.getElementById('value-summary-table-body');
+    if (!tbody || !fin) return;
+
+    // Filter items with thisPeriodQty > 0
+    const activeRows = fin.itemRows.filter(r => (r.thisPeriodQty || 0) > 0.0001 || (r.thisPeriodQty || 0) < -0.0001);
+
+    // Update KPI cards
+    const elGross = document.getElementById('value-kpi-gross');
+    if (elGross) elGross.textContent = `${formatVND(fin.grossThisPeriod)} đ`;
+
+    const elAdvance = document.getElementById('value-kpi-advance');
+    if (elAdvance) elAdvance.textContent = `-${formatVND(fin.advanceDeduction)} đ`;
+
+    const elRetention = document.getElementById('value-kpi-retention');
+    if (elRetention) elRetention.textContent = `-${formatVND(fin.retentionDeduction)} đ`;
+
+    const elNet = document.getElementById('value-kpi-net');
+    if (elNet) elNet.textContent = `${formatVND(fin.netPayment)} đ`;
+
+    const elTotalAmount = document.getElementById('value-summary-total-amount');
+    if (elTotalAmount) elTotalAmount.textContent = `${formatVND(fin.grossThisPeriod)} đ`;
+
+    if (activeRows.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="p-8 text-center text-slate-500">
+            Chưa có công tác nào có khối lượng trong đợt này để tính giá trị.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = activeRows.map((row, idx) => {
+      const sharePct = fin.grossThisPeriod > 0 ? (row.thisPeriodAmount / fin.grossThisPeriod) * 100 : 0;
+      return `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="p-3 text-center text-slate-500 font-mono">${idx + 1}</td>
+          <td class="p-3 text-center font-mono font-bold text-emerald-400">${escapeHtml(row.code)}</td>
+          <td class="p-3 font-medium text-slate-200">${escapeHtml(row.name)}</td>
+          <td class="p-3 text-center font-mono text-slate-400">${escapeHtml(row.unit)}</td>
+          <td class="p-3 text-right font-mono font-bold text-amber-300 bg-amber-500/5">${formatQty(row.thisPeriodQty)}</td>
+          <td class="p-3 text-right font-mono text-slate-300">${formatVND(row.unitPrice)}</td>
+          <td class="p-3 text-right font-mono font-bold text-emerald-400 text-sm">${formatVND(row.thisPeriodAmount)} đ</td>
+          <td class="p-3 text-center font-mono text-slate-400">${sharePct.toFixed(1)}%</td>
+        </tr>
+      `;
+    }).join('');
+  },
+
   // --- 5. RENDER TAB 4: REMAINING FORECAST ---
   renderRemainingTab() {
     const project = getActiveProject();
@@ -594,21 +782,29 @@ const UIRenderer = {
             </tr>
           </thead>
           <tbody>
-            ${fin.itemRows.map((r, i) => `
+            ${fin.itemRows.map((r, i) => {
+              const prevStr = (r.prevQty > 0.0001 || r.prevQty < -0.0001) ? formatQty(r.prevQty) : '';
+              const periodStr = (r.thisPeriodQty > 0.0001 || r.thisPeriodQty < -0.0001) ? formatQty(r.thisPeriodQty) : '';
+              const cumStr = (r.totalCumulativeQty > 0.0001) ? formatQty(r.totalCumulativeQty) : '';
+              const remStr = (r.remainingQty > 0.0001 || r.remainingQty < -0.0001) ? formatQty(r.remainingQty) : '';
+              const amountStr = (r.thisPeriodAmount > 0.0001) ? formatVND(r.thisPeriodAmount) : '';
+
+              return `
               <tr>
                 <td class="border border-gray-400 p-1 text-center font-mono">${i + 1}</td>
                 <td class="border border-gray-400 p-1 font-mono">${escapeHtml(r.code)}</td>
                 <td class="border border-gray-400 p-1">${escapeHtml(r.name)}</td>
                 <td class="border border-gray-400 p-1 text-center font-mono">${escapeHtml(r.unit)}</td>
                 <td class="border border-gray-400 p-1 text-right font-mono">${formatQty(r.totalApprovedQty)}</td>
-                <td class="border border-gray-400 p-1 text-right font-mono">${formatQty(r.prevQty)}</td>
-                <td class="border border-gray-400 p-1 text-right font-mono font-bold bg-amber-50">${formatQty(r.thisPeriodQty)}</td>
-                <td class="border border-gray-400 p-1 text-right font-mono font-bold">${formatQty(r.totalCumulativeQty)}</td>
-                <td class="border border-gray-400 p-1 text-right font-mono">${formatQty(r.remainingQty)}</td>
+                <td class="border border-gray-400 p-1 text-right font-mono">${prevStr}</td>
+                <td class="border border-gray-400 p-1 text-right font-mono font-bold ${periodStr ? 'bg-amber-50' : ''}">${periodStr}</td>
+                <td class="border border-gray-400 p-1 text-right font-mono font-bold">${cumStr}</td>
+                <td class="border border-gray-400 p-1 text-right font-mono">${remStr}</td>
                 <td class="border border-gray-400 p-1 text-right font-mono">${formatVND(r.unitPrice)}</td>
-                <td class="border border-gray-400 p-1 text-right font-mono font-bold">${formatVND(r.thisPeriodAmount)}</td>
+                <td class="border border-gray-400 p-1 text-right font-mono font-bold">${amountStr}</td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
             <tr class="font-bold bg-gray-100">
               <td colspan="10" class="border border-gray-400 p-1.5 text-right uppercase">Tổng giá trị hoàn thành kỳ này:</td>
               <td class="border border-gray-400 p-1.5 text-right font-mono">${formatVND(fin.grossThisPeriod)} đ</td>
@@ -719,6 +915,8 @@ const UIRenderer = {
     this.renderDashboardTab();
     this.renderBOQTab();
     this.renderPaymentTab();
+    this.renderConfirmQtyTab();
+    this.renderValueSummaryTab();
     this.renderMatrixTab();
     this.renderRemainingTab();
     this.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');

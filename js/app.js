@@ -26,12 +26,14 @@ function switchTab(targetTabId) {
   });
 
   // Re-render relevant view
-  if (targetTabId === 'tab-dashboard') UIRenderer.renderDashboardTab();
   if (targetTabId === 'tab-contract') UIRenderer.renderBOQTab();
   if (targetTabId === 'tab-payment') UIRenderer.renderPaymentTab();
+  if (targetTabId === 'tab-confirm-qty') UIRenderer.renderConfirmQtyTab();
+  if (targetTabId === 'tab-value-summary') UIRenderer.renderValueSummaryTab();
+  if (targetTabId === 'tab-export') UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
   if (targetTabId === 'tab-matrix') UIRenderer.renderMatrixTab();
   if (targetTabId === 'tab-remaining') UIRenderer.renderRemainingTab();
-  if (targetTabId === 'tab-export') UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
+  if (targetTabId === 'tab-dashboard') UIRenderer.renderDashboardTab();
   
   UIRenderer.renderHeaderAndKPIs();
 }
@@ -366,6 +368,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 18. Matrix Tab & Chainage Editor Handler
   initMatrixAndChainageModal();
+
+  // 19. Milestone Excel Import Handler
+  initMilestoneExcelImportModal();
 });
 
 // Smart Excel BOQ Import
@@ -710,3 +715,180 @@ function initMatrixAndChainageModal() {
     });
   }
 }
+
+// ==================== MILESTONE EXCEL IMPORT MODAL ====================
+let importedMsWorkbook = null;
+let importedMsSheetData = [];
+
+function initMilestoneExcelImportModal() {
+  const btnOpen = document.getElementById('btn-import-milestone-excel');
+  const modal = document.getElementById('modal-milestone-excel-import');
+  const btnClose = document.getElementById('btn-close-ms-import-modal');
+  const btnCancel = document.getElementById('btn-cancel-ms-import-modal');
+  const btnConfirm = document.getElementById('btn-confirm-ms-import-modal');
+  const fileInput = document.getElementById('input-ms-excel-file');
+  const selectSheet = document.getElementById('modal-ms-select-sheet');
+  const fileNameEl = document.getElementById('modal-ms-file-name');
+  const mappingSection = document.getElementById('ms-import-mapping-section');
+  const subtitleEl = document.getElementById('modal-ms-import-subtitle');
+
+  if (btnOpen) {
+    btnOpen.addEventListener('click', () => {
+      const activeMs = getActiveMilestone();
+      if (subtitleEl && activeMs) {
+        subtitleEl.textContent = `Đợt đang chọn: ${activeMs.code || 'Đợt'} - ${activeMs.name}`;
+      }
+      if (modal) modal.classList.remove('hidden');
+    });
+  }
+
+  if (btnClose) btnClose.addEventListener('click', () => modal.classList.add('hidden'));
+  if (btnCancel) btnCancel.addEventListener('click', () => modal.classList.add('hidden'));
+
+  const handleMsFile = (file) => {
+    if (!file) return;
+    ExcelService.parseUploadedBOQFile(file, (res) => {
+      if (!res.success) {
+        alert('Không thể đọc file Excel: ' + res.error);
+        return;
+      }
+
+      importedMsWorkbook = res.workbook;
+      if (fileNameEl) {
+        fileNameEl.textContent = `✓ Đã chọn: ${file.name}`;
+        fileNameEl.classList.remove('hidden');
+      }
+
+      if (selectSheet) {
+        selectSheet.innerHTML = importedMsWorkbook.SheetNames.map((name, i) => {
+          return `<option value="${escapeHtml(name)}" ${i === 0 ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+        }).join('');
+      }
+
+      loadMsSheetData(importedMsWorkbook.SheetNames[0]);
+      if (mappingSection) mappingSection.classList.remove('hidden');
+    });
+  };
+
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      handleMsFile(e.target.files[0]);
+    });
+  }
+
+  const loadMsSheetData = (sheetName) => {
+    if (!importedMsWorkbook) return;
+    const ws = importedMsWorkbook.Sheets[sheetName];
+    importedMsSheetData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+    const detected = ExcelService.detectMilestoneColumns(importedMsSheetData);
+    populateMsMappingSelectors(detected);
+    renderMsModalPreview(detected ? detected.dataStartRowIndex : 2);
+  };
+
+  if (selectSheet) {
+    selectSheet.addEventListener('change', (e) => {
+      loadMsSheetData(e.target.value);
+    });
+  }
+
+  const populateMsMappingSelectors = (mapping) => {
+    const firstRow = importedMsSheetData[mapping ? mapping.headerRowIndex : 0] || [];
+    const makeOptions = (selectedIdx, allowNone = true) => {
+      let html = allowNone ? '<option value="-1">-- Không dùng cột này --</option>' : '';
+      firstRow.forEach((col, idx) => {
+        const letter = String.fromCharCode(65 + idx);
+        const text = String(col || '').trim();
+        const sel = idx === selectedIdx ? 'selected' : '';
+        html += `<option value="${idx}" ${sel}>Cột ${letter}: ${escapeHtml(text.slice(0, 30))}</option>`;
+      });
+      return html;
+    };
+
+    const selCode = document.getElementById('map-ms-col-code');
+    const selName = document.getElementById('map-ms-col-name');
+    const selQty = document.getElementById('map-ms-col-qty');
+    const selChainage = document.getElementById('map-ms-col-chainage');
+
+    if (selCode) selCode.innerHTML = makeOptions(mapping ? mapping.colCode : 0);
+    if (selName) selName.innerHTML = makeOptions(mapping ? mapping.colName : 1);
+    if (selQty) selQty.innerHTML = makeOptions(mapping ? mapping.colQty : 2, false);
+    if (selChainage) selChainage.innerHTML = makeOptions(mapping ? mapping.colChainage : -1);
+  };
+
+  const renderMsModalPreview = (startRow) => {
+    const previewTable = document.getElementById('modal-ms-preview-table');
+    if (!previewTable) return;
+    const rows = importedMsSheetData.slice(0, Math.min(importedMsSheetData.length, 10));
+    previewTable.innerHTML = rows.map((r, i) => {
+      const isHeader = i < startRow;
+      return `
+        <tr class="${isHeader ? 'bg-slate-800/80 font-bold text-slate-300' : 'text-slate-400'}">
+          <td class="p-1.5 border border-slate-800 text-center">${i + 1}</td>
+          ${(r || []).slice(0, 8).map(c => `<td class="p-1.5 border border-slate-800 truncate max-w-[130px]">${escapeHtml(String(c))}</td>`).join('')}
+        </tr>
+      `;
+    }).join('');
+  };
+
+  if (btnConfirm) {
+    btnConfirm.addEventListener('click', () => {
+      const startRow = parseInt(document.getElementById('modal-ms-start-row')?.value) - 1 || 1;
+      const colCode = parseInt(document.getElementById('map-ms-col-code')?.value ?? -1);
+      const colName = parseInt(document.getElementById('map-ms-col-name')?.value ?? -1);
+      const colQty = parseInt(document.getElementById('map-ms-col-qty')?.value ?? -1);
+      const colChainage = parseInt(document.getElementById('map-ms-col-chainage')?.value ?? -1);
+
+      if (colQty === -1) {
+        alert('Vui lòng chọn Cột Khối Lượng Kỳ Này!');
+        return;
+      }
+      if (colCode === -1 && colName === -1) {
+        alert('Bạn phải chọn ít nhất Cột Mã Hiệu hoặc Cột Tên Công Việc để hệ thống nhận diện đầu việc!');
+        return;
+      }
+
+      const project = getActiveProject();
+      const activeMs = getActiveMilestone();
+      if (!project || !activeMs) return;
+
+      const mappingConfig = { startRow, colCode, colName, colQty, colChainage };
+      const res = ExcelService.matchMilestoneExcelData(importedMsSheetData, mappingConfig, project, activeMs.id);
+
+      if (!res.success) {
+        alert('Lỗi: ' + res.error);
+        return;
+      }
+
+      if (res.matchedCount === 0) {
+        alert('Không tìm thấy đầu việc nào trong bảng Excel khớp với BOQ Hợp đồng hiện tại! Vui lòng kiểm tra lại cột Mã hiệu hoặc Tên công việc.');
+        return;
+      }
+
+      saveAppState();
+      if (modal) modal.classList.add('hidden');
+      UIRenderer.renderAll();
+      showToast(`Đã tự động nhận diện và nạp thành công ${res.matchedCount} đầu việc vào đợt!`, 'success');
+
+      // Tự động chuyển qua tab Xác nhận khối lượng!
+      switchTab('tab-confirm-qty');
+    });
+  }
+}
+
+// Global helper to remove an item from current milestone
+window.clearItemFromMilestone = function(itemId) {
+  const activeMs = getActiveMilestone();
+  if (!activeMs) return;
+  const project = getActiveProject();
+  const item = (project.boqItems || []).find(b => b.id === itemId);
+  const itemName = item ? item.name : 'công tác này';
+
+  if (confirm(`Bạn có muốn xóa khối lượng của "${itemName}" trong đợt này không?`)) {
+    if (activeMs.quantities) delete activeMs.quantities[itemId];
+    if (activeMs.chainageDetails) delete activeMs.chainageDetails[itemId];
+    saveAppState();
+    UIRenderer.renderAll();
+    showToast(`Đã xóa công tác khỏi đợt!`, 'info');
+  }
+};

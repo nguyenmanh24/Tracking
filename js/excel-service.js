@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CONSTRUCTION PAYMENT TRACKER PRO - EXCEL IMPORT / EXPORT SERVICE
  * Powered by SheetJS (XLSX). Exports multi-sheet reports and imports BOQ files with auto-detection.
  */
@@ -281,5 +281,150 @@ const ExcelService = {
     });
 
     return mapping;
+  },
+
+  // 4. Auto-detect Columns for Milestone Payment Sheets
+  detectMilestoneColumns(sheetData) {
+    if (!sheetData || sheetData.length === 0) return null;
+
+    let bestHeaderRowIndex = 0;
+    let maxMatches = 0;
+
+    const keywords = {
+      code: ['mã', 'code', 'ma hieu', 'mã số', 'định mức'],
+      name: ['tên', 'nội dung', 'công việc', 'hạng mục', 'diễn giải', 'mô tả'],
+      qty: ['kỳ này', 'khối lượng', 'kl', 'nghiệm thu', 'thực hiện', 'số lượng', 'qty'],
+      chainage: ['lý trình', 'ly trinh', 'phân đoạn', 'vị trí', 'km', 'tuyến', 'đoạn']
+    };
+
+    for (let r = 0; r < Math.min(15, sheetData.length); r++) {
+      const row = sheetData[r] || [];
+      let matches = 0;
+      row.forEach(cell => {
+        const text = String(cell || '').toLowerCase().trim();
+        for (const key in keywords) {
+          if (keywords[key].some(kw => text.includes(kw))) {
+            matches++;
+            break;
+          }
+        }
+      });
+      if (matches > maxMatches) {
+        maxMatches = matches;
+        bestHeaderRowIndex = r;
+      }
+    }
+
+    const headerRow = sheetData[bestHeaderRowIndex] || [];
+    const mapping = {
+      headerRowIndex: bestHeaderRowIndex,
+      dataStartRowIndex: bestHeaderRowIndex + 1,
+      colCode: -1,
+      colName: -1,
+      colQty: -1,
+      colChainage: -1
+    };
+
+    headerRow.forEach((cell, colIdx) => {
+      const text = String(cell || '').toLowerCase().trim();
+      if (mapping.colCode === -1 && keywords.code.some(kw => text.includes(kw))) {
+        mapping.colCode = colIdx;
+      } else if (mapping.colName === -1 && keywords.name.some(kw => text.includes(kw))) {
+        mapping.colName = colIdx;
+      } else if (mapping.colQty === -1 && keywords.qty.some(kw => text.includes(kw))) {
+        mapping.colQty = colIdx;
+      } else if (mapping.colChainage === -1 && keywords.chainage.some(kw => text.includes(kw))) {
+        mapping.colChainage = colIdx;
+      }
+    });
+
+    return mapping;
+  },
+
+  // 5. Match and Apply Milestone Quantities from Excel Sheet
+  matchMilestoneExcelData(sheetData, mappingConfig, project, milestoneId) {
+    if (!sheetData || !project || !project.boqItems) {
+      return { success: false, error: 'Thiếu dữ liệu công trình hoặc bảng tính!' };
+    }
+
+    const ms = (project.milestones || []).find(m => m.id === milestoneId);
+    if (!ms) {
+      return { success: false, error: 'Không tìm thấy đợt thanh toán mục tiêu!' };
+    }
+
+    const { startRow, colCode, colName, colQty, colChainage } = mappingConfig;
+    if (colQty === -1) {
+      return { success: false, error: 'Bạn phải chỉ định Cột Khối Lượng!' };
+    }
+
+    if (!ms.quantities) ms.quantities = {};
+    if (!ms.chainageDetails) ms.chainageDetails = {};
+
+    const cleanStr = (s) => String(s || '').toLowerCase().replace(/[\s\-_.,/()]/g, '').trim();
+
+    let matchedCount = 0;
+    const totalRows = Math.max(0, sheetData.length - startRow);
+
+    for (let r = startRow; r < sheetData.length; r++) {
+      const row = sheetData[r];
+      if (!row) continue;
+
+      const rawCode = colCode !== -1 ? String(row[colCode] || '').trim() : '';
+      const rawName = colName !== -1 ? String(row[colName] || '').trim() : '';
+      const rawQty = row[colQty];
+      if (rawQty === undefined || rawQty === null || rawQty === '') continue;
+
+      const qty = parseFloat(String(rawQty).replace(/,/g, '').trim());
+      if (isNaN(qty) || qty <= 0) continue;
+
+      const rawChainage = colChainage !== -1 ? String(row[colChainage] || '').trim() : '';
+
+      // Match against BOQ items
+      let matchedItem = null;
+
+      // Match 1: By Code (exact)
+      if (rawCode) {
+        matchedItem = project.boqItems.find(b => b.code && b.code.toLowerCase().trim() === rawCode.toLowerCase());
+      }
+
+      // Match 2: By Name (exact or normalized)
+      if (!matchedItem && rawName) {
+        matchedItem = project.boqItems.find(b => b.name && b.name.toLowerCase().trim() === rawName.toLowerCase());
+        if (!matchedItem) {
+          const cleanRowName = cleanStr(rawName);
+          if (cleanRowName.length >= 4) {
+            matchedItem = project.boqItems.find(b => {
+              const cleanBoqName = cleanStr(b.name);
+              return cleanBoqName === cleanRowName || 
+                     (cleanBoqName.length >= 6 && (cleanBoqName.includes(cleanRowName) || cleanRowName.includes(cleanBoqName)));
+            });
+          }
+        }
+      }
+
+      if (matchedItem) {
+        matchedCount++;
+        ms.quantities[matchedItem.id] = qty;
+
+        // Parse Chainage if present
+        if (rawChainage) {
+          let fromKm = '';
+          let toKm = '';
+          const kmMatch = rawChainage.match(/(?:km|k)?\s*(\d+(?:\+\d+)?)\s*(?:đến|->|➔|-|–|\/)\s*(?:km|k)?\s*(\d+(?:\+\d+)?)/i);
+          if (kmMatch) {
+            fromKm = `Km${kmMatch[1]}`;
+            toKm = `Km${kmMatch[2]}`;
+          }
+          ms.chainageDetails[matchedItem.id] = {
+            fromKm: fromKm || rawChainage,
+            toKm: toKm || '',
+            position: 'Toàn tuyến',
+            note: rawChainage
+          };
+        }
+      }
+    }
+
+    return { success: true, matchedCount, totalRows };
   }
 };
