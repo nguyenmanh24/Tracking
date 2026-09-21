@@ -385,9 +385,12 @@ const UIRenderer = {
               <i class="fa-solid fa-folder-open text-3xl text-slate-600"></i>
               <div class="text-sm font-semibold text-slate-300">Chưa có công tác nào phát sinh khối lượng trong đợt này</div>
               <p class="text-xs text-slate-500">Bạn hãy bấm nút bên dưới để tải bảng Excel đợt thi công lên hoặc quay lại Tab 2 để nhập khối lượng.</p>
-              <div class="flex items-center justify-center gap-2 pt-2">
-                <button onclick="switchTab('tab-payment')" class="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition">
-                  <i class="fa-solid fa-file-excel mr-1"></i> Sang Tab 2 Nạp File Excel
+              <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
+                <button onclick="document.getElementById('btn-import-milestone-excel')?.click()" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 transition flex items-center gap-2">
+                  <i class="fa-solid fa-file-excel"></i> Nạp File Excel Khối Lượng Đợt Này Ngay
+                </button>
+                <button onclick="switchTab('tab-payment')" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-arrow-left"></i> Sang Tab 2 Quản Lý Đợt
                 </button>
               </div>
             </div>

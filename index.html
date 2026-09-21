@@ -354,11 +354,58 @@
         </div>
       </div>
 
+      <!-- BƯỚC TIẾP THEO BANNER (HƯỚNG DẪN NẠP FILE ĐỢT) -->
+      <div class="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-cyan-950/40 to-slate-900 border border-cyan-500/40 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl border border-cyan-500/30 shrink-0">
+            <i class="fa-solid fa-arrow-right"></i>
+          </div>
+          <div>
+            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 text-[11px] font-bold mb-1">
+              <i class="fa-solid fa-circle-check"></i> BƯỚC TIẾP THEO
+            </div>
+            <h4 class="text-sm font-bold text-white">Đã xong BOQ Hợp Đồng! Giờ nạp file Excel bảng tính khối lượng theo đợt</h4>
+            <p class="text-xs text-slate-400 mt-0.5">Không cần nhập tay! Chuyển sang Bước 2 để nạp file tính theo đợt, hệ thống sẽ tự động quét đối soát đầu việc và tính thành tiền.</p>
+          </div>
+        </div>
+        <button onclick="switchTab('tab-payment')" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-500/30 transition flex items-center gap-2 whitespace-nowrap">
+          <span>Sang Bước 2: Nạp File Đợt</span>
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+
     </section>
 
     <!-- ==================== TAB 2: QUẢN LÝ ĐỢT & NẠP KHỐI LƯỢNG EXCEL ==================== -->
     <section id="tab-payment" class="tab-content space-y-6 hidden">
       
+      <!-- BƯỚC 2: DROPZONE NẠP FILE EXCEL KHỐI LƯỢNG ĐỢT (LỚN & DỄ THẤY) -->
+      <input type="file" id="input-ms-dropzone" accept=".xlsx, .xls, .csv" class="hidden">
+      <label for="input-ms-dropzone" id="dropzone-ms-excel-card" class="block p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-cyan-950/40 to-slate-900 border-2 border-dashed border-cyan-500/50 hover:border-cyan-400 hover:bg-slate-900/90 transition shadow-2xl cursor-pointer group">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-4 text-center md:text-left pointer-events-none">
+            <div class="w-14 h-14 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl border border-cyan-500/30 shrink-0 group-hover:scale-110 transition">
+              <i class="fa-solid fa-file-excel"></i>
+            </div>
+            <div>
+              <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-bold border border-emerald-500/20 mb-1">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> TỰ ĐỘNG KHỚP KHỐI LƯỢNG - KHÔNG CẦN NHẬP TAY
+              </div>
+              <h3 class="text-sm sm:text-base font-bold text-white group-hover:text-cyan-300 transition">BẤM VÀO ĐÂY ĐỂ CHỌN FILE EXCEL BẢNG TÍNH KHỐI LƯỢNG CỦA ĐỢT NÀY</h3>
+              <p class="text-xs text-slate-300 mt-1 max-w-2xl">
+                Bấm vào đây (hoặc kéo thả file Excel vào) để nạp bảng tính khối lượng đợt. Hệ thống sẽ tự động quét cột <strong>Mã việc / Tên việc</strong> để khớp với Hợp đồng và gán <strong>Khối lượng thi công đợt</strong>, sau đó tự động chuyển sang <strong>Tab Xác Nhận Khối Lượng</strong>!
+              </p>
+            </div>
+          </div>
+          <div class="shrink-0 pointer-events-none">
+            <div class="px-5 py-3 rounded-xl bg-cyan-600 group-hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 transition flex items-center gap-2">
+              <i class="fa-solid fa-cloud-arrow-up text-sm"></i>
+              <span>Chọn File Excel Đợt</span>
+            </div>
+          </div>
+        </div>
+      </label>
+
       <!-- Milestone Control Hub -->
       <div class="p-5 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-900/90 border border-slate-800 shadow-xl space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">

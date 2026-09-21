@@ -518,6 +518,15 @@ function initExcelImportModal() {
         modal.classList.add('hidden');
         UIRenderer.renderAll();
         showToast(`Đã nạp thành công ${newBOQ.length} đầu việc từ file Excel!`, 'success');
+
+        // Tự động nhắc chuyển sang Bước 2 để nạp file khối lượng đợt
+        setTimeout(() => {
+          if (confirm('Đã nạp thành công BOQ Hợp đồng!\n\nBạn có muốn chuyển sang BƯỚC 2 để nạp file Excel khối lượng thi công theo đợt (tự động nhận diện công việc, không cần nhập tay) ngay không?')) {
+            switchTab('tab-payment');
+            const btnMs = document.getElementById('btn-import-milestone-excel');
+            if (btnMs) btnMs.click();
+          }
+        }, 350);
       }
     });
   }
@@ -732,9 +741,37 @@ function initMilestoneExcelImportModal() {
   const mappingSection = document.getElementById('ms-import-mapping-section');
   const subtitleEl = document.getElementById('modal-ms-import-subtitle');
 
+  const ensureActiveMilestone = () => {
+    let activeMs = getActiveMilestone();
+    if (!activeMs) {
+      const project = getActiveProject();
+      if (project) {
+        if (!project.milestones || project.milestones.length === 0) {
+          project.milestones = [{
+            id: `ms_${Date.now()}`,
+            code: 'DOT-01',
+            name: 'Đợt 1 - Nghiệm thu đợt 1',
+            startDate: new Date().toISOString().split('T')[0],
+            endDate: new Date().toISOString().split('T')[0],
+            status: 'draft',
+            advanceRate: 20,
+            retentionRate: 5,
+            quantities: {},
+            chainageDetails: {}
+          }];
+        }
+        AppState.activeMilestoneId = project.milestones[0].id;
+        saveAppState();
+        UIRenderer.renderAll();
+        activeMs = project.milestones[0];
+      }
+    }
+    return activeMs;
+  };
+
   if (btnOpen) {
     btnOpen.addEventListener('click', () => {
-      const activeMs = getActiveMilestone();
+      const activeMs = ensureActiveMilestone();
       if (subtitleEl && activeMs) {
         subtitleEl.textContent = `Đợt đang chọn: ${activeMs.code || 'Đợt'} - ${activeMs.name}`;
       }
@@ -773,6 +810,45 @@ function initMilestoneExcelImportModal() {
   if (fileInput) {
     fileInput.addEventListener('change', (e) => {
       handleMsFile(e.target.files[0]);
+    });
+  }
+
+  // Kết nối Dropzone thẻ lớn ở Bước 2
+  const dropzoneMsInput = document.getElementById('input-ms-dropzone');
+  if (dropzoneMsInput) {
+    dropzoneMsInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const activeMs = ensureActiveMilestone();
+        if (subtitleEl && activeMs) {
+          subtitleEl.textContent = `Đợt đang chọn: ${activeMs.code || 'Đợt'} - ${activeMs.name}`;
+        }
+        if (modal) modal.classList.remove('hidden');
+        handleMsFile(file);
+      }
+    });
+  }
+
+  const dropzoneMsCard = document.getElementById('dropzone-ms-excel-card');
+  if (dropzoneMsCard) {
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzoneMsCard.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    });
+    dropzoneMsCard.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const files = e.dataTransfer ? e.dataTransfer.files : null;
+      if (files && files[0]) {
+        const activeMs = ensureActiveMilestone();
+        if (subtitleEl && activeMs) {
+          subtitleEl.textContent = `Đợt đang chọn: ${activeMs.code || 'Đợt'} - ${activeMs.name}`;
+        }
+        if (modal) modal.classList.remove('hidden');
+        handleMsFile(files[0]);
+      }
     });
   }
 
