@@ -142,13 +142,17 @@ const Calculator = {
     if (milestone.customAdvanceDeduction !== null && milestone.customAdvanceDeduction !== undefined && milestone.customAdvanceDeduction !== '' && parseFlexibleNumber(milestone.customAdvanceDeduction) > 0) {
       advanceDeduction = Math.round(parseFlexibleNumber(milestone.customAdvanceDeduction));
     } else {
-      const advPct = milestone.advanceDeductionRate !== undefined ? parseFlexibleNumber(milestone.advanceDeductionRate) : (parseFlexibleNumber(project.info.advancePct) || 0);
+      const advPct = (milestone.advanceDeductionRate !== undefined && milestone.advanceDeductionRate !== null && milestone.advanceDeductionRate !== '')
+        ? parseFlexibleNumber(milestone.advanceDeductionRate)
+        : (project && project.info && project.info.advancePct !== undefined ? parseFlexibleNumber(project.info.advancePct) : 0);
       advanceDeduction = Math.round(grossThisPeriod * (advPct / 100));
     }
 
     // Retention Deduction (Bảo hành công trình: tự nhập % hoặc 0% nếu dùng bảo lãnh)
     let retentionDeduction = 0;
-    const retPct = milestone.retentionRate !== undefined ? parseFlexibleNumber(milestone.retentionRate) : (parseFlexibleNumber(project.info.retentionPct) || 0);
+    const retPct = (milestone.retentionRate !== undefined && milestone.retentionRate !== null && milestone.retentionRate !== '')
+      ? parseFlexibleNumber(milestone.retentionRate)
+      : (project && project.info && project.info.retentionPct !== undefined ? parseFlexibleNumber(project.info.retentionPct) : 0);
     if (retPct > 0) {
       retentionDeduction = Math.round(grossThisPeriod * (retPct / 100));
     }

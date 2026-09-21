@@ -83,9 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
         submissionDate: '',
         status: 'draft',
         quantities: {},
-        advanceDeductionRate: project.info.advancePct || 20,
+        advanceDeductionRate: project.info.advancePct !== undefined ? project.info.advancePct : 20,
         customAdvanceDeduction: null,
-        retentionRate: project.info.retentionPct || 5,
+        retentionRate: project.info.retentionPct !== undefined ? project.info.retentionPct : 0,
         otherDeductions: 0,
         paidAmount: 0,
         notes: ''
@@ -226,10 +226,24 @@ document.addEventListener('DOMContentLoaded', () => {
         'proj-advance-amount': 'advanceAmount'
       };
       el.addEventListener('change', e => {
-        updateProjectField(fieldMap[id], parseFlexibleNumber(e.target.value));
+        const val = parseFlexibleNumber(e.target.value);
+        updateProjectField(fieldMap[id], val);
+
+        // Lan tỏa thay đổi đến đợt thanh toán đang chọn
+        const activeMs = getActiveMilestone();
+        if (activeMs) {
+          if (id === 'proj-retention-pct') {
+            activeMs.retentionRate = val;
+          } else if (id === 'proj-advance-pct') {
+            activeMs.advanceDeductionRate = val;
+          }
+          saveAppState();
+        }
+
         UIRenderer.renderPaymentTab();
         UIRenderer.renderValueSummaryTab();
         UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
+        UIRenderer.renderHeaderAndKPIs();
       });
     }
   });
@@ -294,7 +308,71 @@ document.addEventListener('DOMContentLoaded', () => {
       UIRenderer.renderPaymentTab();
       UIRenderer.renderValueSummaryTab();
       UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
+      UIRenderer.renderHeaderAndKPIs();
       showToast('Đã đặt giữ bảo hành về 0% (Dùng bảo lãnh ngân hàng)!', 'info');
+    });
+  }
+
+  // --- TAB 4 INTERACTIVE RETENTION & ADVANCE HANDLERS ---
+  const valRetRate = document.getElementById('value-ret-rate');
+  if (valRetRate) {
+    valRetRate.addEventListener('change', e => {
+      const activeMs = getActiveMilestone();
+      if (!activeMs) return;
+      activeMs.retentionRate = parseFlexibleNumber(e.target.value);
+      saveAppState();
+      UIRenderer.renderValueSummaryTab();
+      UIRenderer.renderPaymentTab();
+      UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
+      UIRenderer.renderHeaderAndKPIs();
+      showToast(`Đã cập nhật mức giữ bảo hành: ${activeMs.retentionRate}%`, 'success');
+    });
+  }
+
+  const btnValueZeroRet = document.getElementById('btn-value-zero-retention');
+  if (btnValueZeroRet) {
+    btnValueZeroRet.addEventListener('click', () => {
+      const activeMs = getActiveMilestone();
+      if (!activeMs) return;
+      activeMs.retentionRate = 0;
+      saveAppState();
+      UIRenderer.renderValueSummaryTab();
+      UIRenderer.renderPaymentTab();
+      UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
+      UIRenderer.renderHeaderAndKPIs();
+      showToast('Đã đặt giữ bảo hành về 0% (Dùng bảo lãnh ngân hàng)!', 'info');
+    });
+  }
+
+  const valAdvRate = document.getElementById('value-adv-rate');
+  if (valAdvRate) {
+    valAdvRate.addEventListener('change', e => {
+      const activeMs = getActiveMilestone();
+      if (!activeMs) return;
+      activeMs.advanceDeductionRate = parseFlexibleNumber(e.target.value);
+      activeMs.customAdvanceDeduction = null;
+      saveAppState();
+      UIRenderer.renderValueSummaryTab();
+      UIRenderer.renderPaymentTab();
+      UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
+      UIRenderer.renderHeaderAndKPIs();
+      showToast(`Đã cập nhật tỷ lệ thu hồi tạm ứng: ${activeMs.advanceDeductionRate}%`, 'success');
+    });
+  }
+
+  const valCustomAdv = document.getElementById('value-custom-advance');
+  if (valCustomAdv) {
+    valCustomAdv.addEventListener('change', e => {
+      const activeMs = getActiveMilestone();
+      if (!activeMs) return;
+      const raw = e.target.value.trim();
+      activeMs.customAdvanceDeduction = raw === '' ? null : parseFlexibleNumber(raw);
+      saveAppState();
+      UIRenderer.renderValueSummaryTab();
+      UIRenderer.renderPaymentTab();
+      UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
+      UIRenderer.renderHeaderAndKPIs();
+      showToast('Đã cập nhật số tiền thu hồi tạm ứng theo chỉ định!', 'success');
     });
   }
 
@@ -778,8 +856,8 @@ function initMilestoneExcelImportModal() {
             startDate: new Date().toISOString().split('T')[0],
             endDate: new Date().toISOString().split('T')[0],
             status: 'draft',
-            advanceRate: 20,
-            retentionRate: 5,
+            advanceRate: project.info && project.info.advancePct !== undefined ? project.info.advancePct : 20,
+            retentionRate: project.info && project.info.retentionPct !== undefined ? project.info.retentionPct : 0,
             quantities: {},
             chainageDetails: {}
           }];

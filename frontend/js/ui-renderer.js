@@ -494,7 +494,15 @@ const UIRenderer = {
     // Filter items with thisPeriodQty > 0
     const activeRows = fin.itemRows.filter(r => (r.thisPeriodQty || 0) > 0.0001 || (r.thisPeriodQty || 0) < -0.0001);
 
-    // Update KPI cards
+    // Update KPI cards & Dynamic Inputs
+    const retRate = (activeMs.retentionRate !== undefined && activeMs.retentionRate !== null && activeMs.retentionRate !== '')
+      ? parseFlexibleNumber(activeMs.retentionRate)
+      : (project.info && project.info.retentionPct !== undefined ? parseFlexibleNumber(project.info.retentionPct) : 0);
+
+    const advRate = (activeMs.advanceDeductionRate !== undefined && activeMs.advanceDeductionRate !== null && activeMs.advanceDeductionRate !== '')
+      ? parseFlexibleNumber(activeMs.advanceDeductionRate)
+      : (project.info && project.info.advancePct !== undefined ? parseFlexibleNumber(project.info.advancePct) : 0);
+
     const elGross = document.getElementById('value-kpi-gross');
     if (elGross) elGross.textContent = `${formatVND(fin.grossThisPeriod)} đ`;
 
@@ -506,6 +514,30 @@ const UIRenderer = {
 
     const elNet = document.getElementById('value-kpi-net');
     if (elNet) elNet.textContent = `${formatVND(fin.netPayment)} đ`;
+
+    const elRetentionLabel = document.getElementById('value-kpi-retention-label');
+    if (elRetentionLabel) {
+      if (retRate === 0) {
+        elRetentionLabel.innerHTML = `3. Giữ Bảo Hành (<span class="text-cyan-400 font-bold">0%</span> - Bảo lãnh NH):`;
+      } else {
+        elRetentionLabel.innerHTML = `3. Giữ Bảo Hành (<span class="text-cyan-400 font-bold">${retRate}%</span>):`;
+      }
+    }
+
+    const valRetInput = document.getElementById('value-ret-rate');
+    if (valRetInput && document.activeElement !== valRetInput) {
+      valRetInput.value = retRate;
+    }
+
+    const valAdvInput = document.getElementById('value-adv-rate');
+    if (valAdvInput && document.activeElement !== valAdvInput) {
+      valAdvInput.value = advRate;
+    }
+
+    const valCustomAdvInput = document.getElementById('value-custom-advance');
+    if (valCustomAdvInput && document.activeElement !== valCustomAdvInput) {
+      valCustomAdvInput.value = (activeMs.customAdvanceDeduction !== null && activeMs.customAdvanceDeduction !== undefined) ? activeMs.customAdvanceDeduction : '';
+    }
 
     const elTotalAmount = document.getElementById('value-summary-total-amount');
     if (elTotalAmount) elTotalAmount.textContent = `${formatVND(fin.grossThisPeriod)} đ`;
@@ -882,12 +914,12 @@ const UIRenderer = {
             </tr>
             <tr>
               <td class="border border-gray-400 p-2 text-center font-mono">2</td>
-              <td class="border border-gray-400 p-2">Khấu trừ thu hồi tạm ứng (${activeMs.advanceDeductionRate || project.info.advancePct}%)</td>
+              <td class="border border-gray-400 p-2">Khấu trừ thu hồi tạm ứng (${activeMs.customAdvanceDeduction && parseFlexibleNumber(activeMs.customAdvanceDeduction) > 0 ? 'Số tiền ấn định' : ((activeMs.advanceDeductionRate !== undefined ? activeMs.advanceDeductionRate : (project.info.advancePct || 0)) + '%')})</td>
               <td class="border border-gray-400 p-2 text-right font-mono text-red-600">-${formatVND(fin.advanceDeduction)} đ</td>
             </tr>
             <tr>
               <td class="border border-gray-400 p-2 text-center font-mono">3</td>
-              <td class="border border-gray-400 p-2">Khấu trừ giữ lại bảo hành công trình (${activeMs.retentionRate || project.info.retentionPct}%)</td>
+              <td class="border border-gray-400 p-2">Khấu trừ giữ lại bảo hành công trình (${(activeMs.retentionRate !== undefined ? activeMs.retentionRate : (project.info.retentionPct || 0)) > 0 ? ((activeMs.retentionRate !== undefined ? activeMs.retentionRate : project.info.retentionPct) + '%') : '0% - Bảo lãnh NH'})</td>
               <td class="border border-gray-400 p-2 text-right font-mono text-red-600">-${formatVND(fin.retentionDeduction)} đ</td>
             </tr>
             ${fin.otherDeductions > 0 ? `
