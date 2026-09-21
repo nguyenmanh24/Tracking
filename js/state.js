@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CONSTRUCTION PAYMENT TRACKER PRO - STATE MANAGEMENT
  * Handles multi-project state, BOQ items, payment milestones, localStorage persistence, and JSON backup/restore.
  */
@@ -67,6 +67,9 @@ function createSampleProject() {
           'boq_5': 235.0,// Xong bê tông móng
           'boq_6': 8.0   // Xong đắp đất móng
         },
+        chainageDetails: {
+          'boq_1': { fromKm: 'Km0+000', toKm: 'Km0+450', position: 'Toàn tuyến', note: 'Đào hố móng trụ' }
+        },
         advanceDeductionRate: 20,
         customAdvanceDeduction: null,
         retentionRate: 5,
@@ -95,6 +98,10 @@ function createSampleProject() {
           'boq_9': 280.0,// Bê tông cột dầm sàn
           'boq_10': 45.0 // Xây tường ngăn tầng 1
         },
+        chainageDetails: {
+          'boq_7': { fromKm: 'Km0+450', toKm: 'Km1+200', position: 'Trái tuyến', note: 'Khung cột trục 1-5' },
+          'boq_8': { fromKm: 'Km0+450', toKm: 'Km1+200', position: 'Trái tuyến', note: 'Cốt thép sàn T2' }
+        },
         advanceDeductionRate: 20,
         customAdvanceDeduction: null,
         retentionRate: 5,
@@ -118,12 +125,42 @@ function createSampleProject() {
           'boq_10': 120.0,// Xây tường tiếp
           'boq_11': 10.0 // Bắt đầu trát tường
         },
+        chainageDetails: {
+          'boq_10': { fromKm: 'Km1+200', toKm: 'Km2+500', position: 'Toàn tuyến', note: 'Xây tường ngăn' }
+        },
         advanceDeductionRate: 20,
         customAdvanceDeduction: null,
         retentionRate: 5,
         otherDeductions: 0,
         paidAmount: 0,
         notes: 'Đợt dự kiến lập kế hoạch dòng tiền thi công'
+      },
+      {
+        id: 'ms_4',
+        name: 'Đợt 4: Nghiệm thu hoàn thiện Mặt đường & Vỉa hè',
+        code: 'DOT-04',
+        startDate: '2026-10-01',
+        endDate: '2026-12-15',
+        submissionDate: '2026-12-20',
+        paymentDate: '',
+        status: 'draft',
+        quantities: {
+          'boq_12': 250 // Hiện 250m
+        },
+        chainageDetails: {
+          'boq_12': {
+            fromKm: 'Km3+100',
+            toKm: 'Km3+250',
+            position: 'Trái tuyến',
+            note: 'Thi công từ Km3+100 tới Km3+250 (chiều dài 150m)'
+          }
+        },
+        advanceDeductionRate: 20,
+        customAdvanceDeduction: null,
+        retentionRate: 5,
+        otherDeductions: 0,
+        paidAmount: 0,
+        notes: 'Đợt 4 thi công phân đoạn lý trình Km3+100 - Km3+250'
       }
     ]
   };
@@ -138,7 +175,18 @@ function initAppState() {
       if (parsed.projects && parsed.projects.length > 0) {
         AppState.projects = parsed.projects;
         AppState.activeProjectId = parsed.activeProjectId || AppState.projects[0].id;
-        AppState.activeMilestoneId = parsed.activeMilestoneId || (AppState.projects[0].milestones[0] ? AppState.projects[0].milestones[0].id : null);
+        // Ensure chainageDetails initialized on all milestones
+        AppState.projects.forEach(p => {
+          (p.milestones || []).forEach(m => {
+            if (!m.chainageDetails) m.chainageDetails = {};
+          });
+          // If demo project and missing ms_4, append sample ms_4
+          if (p.id === 'proj_demo_highway_01' && !p.milestones.some(m => m.id === 'ms_4')) {
+            const sample = createSampleProject();
+            const ms4 = sample.milestones.find(m => m.id === 'ms_4');
+            if (ms4) p.milestones.push(ms4);
+          }
+        });
         return;
       }
     }

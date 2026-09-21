@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CONSTRUCTION PAYMENT TRACKER PRO - CALCULATION ENGINE
  * Pure mathematical and business logic for construction payments, acceptance quantities,
  * remaining balances, overrun alerts, and cashflow deductions.
@@ -280,5 +280,26 @@ const Calculator = {
       totalPaidToBank,
       investorOutstandingDebt
     };
+  },
+
+  // 6. Chainage Parsing & Distance Helper (Km3+100 -> 3100m)
+  parseChainageToMeters(str) {
+    if (!str || typeof str !== 'string') return null;
+    const clean = str.trim().toLowerCase().replace(/\s+/g, '');
+    const match = clean.match(/^(?:km|k)?(\d+)(?:\+(\d+))?$/);
+    if (match) {
+      const km = parseInt(match[1], 10) || 0;
+      const m = parseInt(match[2] || '0', 10) || 0;
+      return km * 1000 + m;
+    }
+    const num = parseFloat(clean);
+    return isNaN(num) ? null : num;
+  },
+
+  calculateChainageDistance(fromStr, toStr) {
+    const fromM = this.parseChainageToMeters(fromStr);
+    const toM = this.parseChainageToMeters(toStr);
+    if (fromM === null || toM === null) return null;
+    return Math.abs(toM - fromM);
   }
 };

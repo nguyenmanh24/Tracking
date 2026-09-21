@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CONSTRUCTION PAYMENT TRACKER PRO - MAIN APPLICATION CONTROLLER (PART 1)
  * Coordinates tabs, event handlers, milestone management, Excel importing, and document printing.
  */
@@ -29,6 +29,7 @@ function switchTab(targetTabId) {
   if (targetTabId === 'tab-dashboard') UIRenderer.renderDashboardTab();
   if (targetTabId === 'tab-contract') UIRenderer.renderBOQTab();
   if (targetTabId === 'tab-payment') UIRenderer.renderPaymentTab();
+  if (targetTabId === 'tab-matrix') UIRenderer.renderMatrixTab();
   if (targetTabId === 'tab-remaining') UIRenderer.renderRemainingTab();
   if (targetTabId === 'tab-export') UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
   
@@ -362,6 +363,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 17. Smart Excel BOQ Import Handler
   initExcelImportModal();
+
+  // 18. Matrix Tab & Chainage Editor Handler
+  initMatrixAndChainageModal();
 });
 
 // Smart Excel BOQ Import
@@ -509,6 +513,199 @@ function initExcelImportModal() {
         modal.classList.add('hidden');
         UIRenderer.renderAll();
         showToast(`Đã nạp thành công ${newBOQ.length} đầu việc từ file Excel!`, 'success');
+      }
+    });
+  }
+}
+
+// ==================== TAB 4: MATRIX TỔNG HỢP & LÝ TRÌNH THI CÔNG ====================
+let activeChainageTarget = null; // { itemId, milestoneId }
+
+function updateChainageCalcLength() {
+  const inputChainageFrom = document.getElementById('modal-chainage-from');
+  const inputChainageTo = document.getElementById('modal-chainage-to');
+  const fromVal = inputChainageFrom ? inputChainageFrom.value : '';
+  const toVal = inputChainageTo ? inputChainageTo.value : '';
+  const len = Calculator.calculateChainageDistance(fromVal, toVal);
+  const lenEl = document.getElementById('modal-chainage-calc-len');
+  if (lenEl) {
+    if (len !== null) {
+      lenEl.textContent = `${len.toLocaleString('vi-VN')} m (${(len / 1000).toFixed(3)} km)`;
+      lenEl.className = 'bg-slate-800/80 border border-cyan-500/50 rounded-xl px-3 py-1.5 text-cyan-300 font-mono font-bold';
+    } else {
+      lenEl.textContent = '-- m';
+      lenEl.className = 'bg-slate-800/80 border border-slate-700 rounded-xl px-3 py-1.5 text-slate-400 font-mono';
+    }
+  }
+}
+
+function openChainageModal(itemId, milestoneId) {
+  const project = getActiveProject();
+  if (!project) return;
+  const item = (project.boqItems || []).find(b => b.id === itemId);
+  const ms = (project.milestones || []).find(m => m.id === milestoneId);
+  if (!item || !ms) return;
+
+  activeChainageTarget = { itemId, milestoneId };
+
+  const contractQty = (item.contractQty || 0) + (item.variationQty || 0);
+  const currentQty = (ms.quantities && ms.quantities[itemId] !== undefined) ? ms.quantities[itemId] : '';
+  const detail = (ms.chainageDetails && ms.chainageDetails[itemId]) ? ms.chainageDetails[itemId] : {};
+
+  // Populate Modal UI
+  const subtitleEl = document.getElementById('modal-chainage-subtitle');
+  if (subtitleEl) subtitleEl.textContent = `${ms.name} | ${item.code}: ${item.name}`;
+
+  const itemNameEl = document.getElementById('modal-chainage-itemname');
+  if (itemNameEl) itemNameEl.textContent = item.name;
+
+  const itemCodeEl = document.getElementById('modal-chainage-itemcode');
+  if (itemCodeEl) itemCodeEl.textContent = item.code;
+
+  const itemUnitEl = document.getElementById('modal-chainage-unit');
+  if (itemUnitEl) itemUnitEl.textContent = item.unit;
+
+  const unitLabelEl = document.getElementById('modal-chainage-unit-label');
+  if (unitLabelEl) unitLabelEl.textContent = item.unit;
+
+  const unitBadgeEl = document.getElementById('modal-chainage-unit-badge');
+  if (unitBadgeEl) unitBadgeEl.textContent = item.unit;
+
+  const contractQtyEl = document.getElementById('modal-chainage-contract-qty');
+  if (contractQtyEl) contractQtyEl.textContent = formatQty(contractQty);
+
+  const qtyInput = document.getElementById('modal-chainage-qty');
+  if (qtyInput) qtyInput.value = currentQty;
+
+  const inputFrom = document.getElementById('modal-chainage-from');
+  if (inputFrom) inputFrom.value = detail.fromKm || '';
+
+  const inputTo = document.getElementById('modal-chainage-to');
+  if (inputTo) inputTo.value = detail.toKm || '';
+
+  const posSelect = document.getElementById('modal-chainage-pos');
+  if (posSelect) posSelect.value = detail.position || 'Toàn tuyến';
+
+  const noteInput = document.getElementById('modal-chainage-note');
+  if (noteInput) noteInput.value = detail.note || '';
+
+  updateChainageCalcLength();
+
+  const modal = document.getElementById('modal-chainage-editor');
+  if (modal) modal.classList.remove('hidden');
+  if (qtyInput) qtyInput.focus();
+}
+
+window.openChainageModal = openChainageModal;
+
+function closeChainageModal() {
+  const modal = document.getElementById('modal-chainage-editor');
+  if (modal) modal.classList.add('hidden');
+  activeChainageTarget = null;
+}
+
+function initMatrixAndChainageModal() {
+  // Search Filter
+  const filterInput = document.getElementById('filter-matrix-search');
+  if (filterInput) {
+    filterInput.addEventListener('input', () => {
+      UIRenderer.renderMatrixTab();
+    });
+  }
+
+  // Create Milestone Button inside Matrix Tab
+  const btnMatrixAdd = document.getElementById('btn-matrix-add-ms');
+  if (btnMatrixAdd) {
+    btnMatrixAdd.addEventListener('click', () => {
+      const btnAdd = document.getElementById('btn-add-milestone');
+      if (btnAdd) btnAdd.click();
+      switchTab('tab-matrix');
+    });
+  }
+
+  // Live chainage distance calculation
+  const inputFrom = document.getElementById('modal-chainage-from');
+  const inputTo = document.getElementById('modal-chainage-to');
+  if (inputFrom) inputFrom.addEventListener('input', updateChainageCalcLength);
+  if (inputTo) inputTo.addEventListener('input', updateChainageCalcLength);
+
+  // Modal Close buttons
+  const btnClose = document.getElementById('btn-close-chainage');
+  const btnCancel = document.getElementById('btn-cancel-chainage');
+  if (btnClose) btnClose.addEventListener('click', closeChainageModal);
+  if (btnCancel) btnCancel.addEventListener('click', closeChainageModal);
+
+  // Delegate click on matrix table cells
+  const matrixTableBody = document.getElementById('matrix-table-body');
+  if (matrixTableBody) {
+    matrixTableBody.addEventListener('click', (e) => {
+      const cell = e.target.closest('.matrix-cell');
+      if (!cell) return;
+      const itemId = cell.dataset.itemId;
+      const msId = cell.dataset.msId;
+      if (itemId && msId) {
+        openChainageModal(itemId, msId);
+      }
+    });
+  }
+
+  // Save chainage & quantity button
+  const btnSave = document.getElementById('btn-save-chainage');
+  if (btnSave) {
+    btnSave.addEventListener('click', () => {
+      if (!activeChainageTarget) return;
+      const project = getActiveProject();
+      if (!project) return;
+      const ms = (project.milestones || []).find(m => m.id === activeChainageTarget.milestoneId);
+      if (!ms) return;
+
+      const qtyVal = parseFloat(document.getElementById('modal-chainage-qty')?.value);
+      const qty = isNaN(qtyVal) ? 0 : qtyVal;
+      const fromKm = document.getElementById('modal-chainage-from')?.value.trim() || '';
+      const toKm = document.getElementById('modal-chainage-to')?.value.trim() || '';
+      const pos = document.getElementById('modal-chainage-pos')?.value || 'Toàn tuyến';
+      const note = document.getElementById('modal-chainage-note')?.value.trim() || '';
+
+      if (!ms.quantities) ms.quantities = {};
+      ms.quantities[activeChainageTarget.itemId] = qty;
+
+      if (!ms.chainageDetails) ms.chainageDetails = {};
+      if (fromKm || toKm || note || (pos && pos !== 'Toàn tuyến')) {
+        ms.chainageDetails[activeChainageTarget.itemId] = {
+          fromKm,
+          toKm,
+          position: pos,
+          note
+        };
+      } else {
+        delete ms.chainageDetails[activeChainageTarget.itemId];
+      }
+
+      saveAppState();
+      closeChainageModal();
+      UIRenderer.renderAll();
+      showToast('Đã lưu khối lượng & lý trình thành công!', 'success');
+    });
+  }
+
+  // Delete / Clear Cell button
+  const btnDelete = document.getElementById('btn-delete-chainage-cell');
+  if (btnDelete) {
+    btnDelete.addEventListener('click', () => {
+      if (!activeChainageTarget) return;
+      const project = getActiveProject();
+      if (!project) return;
+      const ms = (project.milestones || []).find(m => m.id === activeChainageTarget.milestoneId);
+      if (!ms) return;
+
+      if (confirm('Bạn có chắc chắn muốn xóa khối lượng và lý trình của ô này không?')) {
+        if (ms.quantities) delete ms.quantities[activeChainageTarget.itemId];
+        if (ms.chainageDetails) delete ms.chainageDetails[activeChainageTarget.itemId];
+
+        saveAppState();
+        closeChainageModal();
+        UIRenderer.renderAll();
+        showToast('Đã xóa dữ liệu ô thành công!', 'info');
       }
     });
   }

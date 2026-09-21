@@ -271,12 +271,20 @@ const UIRenderer = {
         statusBadge = `<span class="text-slate-500">Chưa làm</span>`;
       }
 
+      const chainage = activeMs.chainageDetails ? activeMs.chainageDetails[row.itemId] : null;
+      const hasChainage = chainage && (chainage.fromKm || chainage.toKm);
+
       return `
         <tr class="hover:bg-slate-800/50 transition ${row.isOverrun ? 'row-overrun' : (row.isCompleted ? 'row-completed' : '')}" data-id="${row.itemId}">
           <td class="p-2 text-center text-slate-500 font-mono text-[11px]">${idx + 1}</td>
           <td class="p-2 font-mono text-emerald-400 font-semibold text-[11px]">${escapeHtml(row.code)}</td>
           <td class="p-2">
             <div class="text-slate-200 font-medium text-xs">${escapeHtml(row.name)}</div>
+            ${hasChainage ? `
+              <div class="mt-0.5 inline-flex items-center gap-1 text-[10px] text-cyan-400 font-mono cursor-pointer hover:underline" onclick="if(window.openChainageModal) window.openChainageModal('${row.itemId}', '${activeMs.id}')" title="${escapeHtml(chainage.note || 'Xem/sửa lý trình')}">
+                <i class="fa-solid fa-location-dot text-[9px]"></i> ${escapeHtml(chainage.fromKm || '')} ➔ ${escapeHtml(chainage.toKm || '')} ${chainage.position ? '(' + escapeHtml(chainage.position) + ')' : ''}
+              </div>
+            ` : ''}
           </td>
           <td class="p-2 text-center text-slate-400 font-mono text-[11px]">${escapeHtml(row.unit)}</td>
           <td class="p-2 text-right font-mono text-slate-300 text-xs">${formatQty(row.totalApprovedQty)}</td>
@@ -400,6 +408,144 @@ const UIRenderer = {
         overrunCard.classList.add('hidden');
       }
     }
+  },
+
+  // --- 5. RENDER TAB 4: MATRIX TỔNG HỢP CÁC ĐỢT & LÝ TRÌNH ---
+  renderMatrixTab() {
+    const project = getActiveProject();
+    if (!project) return;
+
+    const theadRow = document.getElementById('matrix-table-header-row');
+    const tbody = document.getElementById('matrix-table-body');
+    if (!theadRow || !tbody) return;
+
+    const milestones = project.milestones || [];
+    const boqItems = project.boqItems || [];
+    const searchTerm = (document.getElementById('filter-matrix-search')?.value || '').toLowerCase().trim();
+
+    // 1. Build Header row
+    let headerHtml = `
+      <th class="p-3 text-center w-12 sticky left-0 z-20 bg-slate-900 border-r border-slate-800">STT</th>
+      <th class="p-3 text-center w-24 sticky left-12 z-20 bg-slate-900 border-r border-slate-800">Mã Hiệu</th>
+      <th class="p-3 min-w-[280px] z-10 bg-slate-900 border-r border-slate-800">Nội Dung Hạng Mục BOQ</th>
+      <th class="p-3 text-center w-16 bg-slate-900 border-r border-slate-800">ĐVT</th>
+      <th class="p-3 text-right w-28 bg-slate-900 border-r border-slate-800">Khối Lượng HĐ</th>
+    `;
+
+    milestones.forEach((ms, idx) => {
+      const isCurrentActive = ms.id === AppState.activeMilestoneId;
+      headerHtml += `
+        <th class="p-3 text-center min-w-[170px] border-r border-slate-800 ${isCurrentActive ? 'bg-cyan-950/40 text-cyan-300 font-bold' : 'bg-slate-900'}">
+          <div class="flex items-center justify-center gap-1">
+            <span>${escapeHtml(ms.code || `ĐỢT ${idx + 1}`)}</span>
+            ${isCurrentActive ? '<span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>' : ''}
+          </div>
+          <div class="text-[10px] text-slate-400 font-normal truncate max-w-[160px] mx-auto mt-0.5" title="${escapeHtml(ms.name)}">
+            ${escapeHtml(ms.name)}
+          </div>
+        </th>
+      `;
+    });
+
+    headerHtml += `
+      <th class="p-3 text-right w-28 bg-slate-900 border-r border-slate-800 text-emerald-400 font-bold">Lũy Kế Thực Hiện</th>
+      <th class="p-3 text-right w-28 bg-slate-900 border-r border-slate-800 text-amber-300">Khối Lượng Còn Lại</th>
+      <th class="p-3 text-center w-24 bg-slate-900 text-cyan-400">Tỷ Lệ (%)</th>
+    `;
+    theadRow.innerHTML = headerHtml;
+
+    // 2. Filter BOQ items
+    const filteredItems = boqItems.filter(item => {
+      if (!searchTerm) return true;
+      return (item.name && item.name.toLowerCase().includes(searchTerm)) ||
+             (item.code && item.code.toLowerCase().includes(searchTerm));
+    });
+
+    if (filteredItems.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="${5 + milestones.length + 3}" class="p-8 text-center text-slate-500 italic">
+            Không tìm thấy hạng mục nào phù hợp với từ khóa "${escapeHtml(searchTerm)}".
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    // 3. Render Body Rows
+    tbody.innerHTML = filteredItems.map((item, idx) => {
+      const contractQty = (item.contractQty || 0) + (item.variationQty || 0);
+      let cumTotal = 0;
+
+      let msCellsHtml = '';
+      milestones.forEach(ms => {
+        const qty = (ms.quantities && ms.quantities[item.id]) ? Number(ms.quantities[item.id]) : 0;
+        cumTotal += qty;
+
+        const chainage = ms.chainageDetails ? ms.chainageDetails[item.id] : null;
+        const hasChainage = chainage && (chainage.fromKm || chainage.toKm || chainage.note || chainage.position);
+
+        let cellContent = '';
+        if (qty > 0) {
+          cellContent += `<div class="font-bold text-slate-100 text-xs">${formatQty(qty)} <span class="text-[10px] text-slate-400 font-normal">${escapeHtml(item.unit)}</span></div>`;
+        } else {
+          cellContent += `<div class="text-slate-600 font-normal text-xs">-</div>`;
+        }
+
+        if (hasChainage) {
+          const from = chainage.fromKm || '...';
+          const to = chainage.toKm || '...';
+          const pos = chainage.position && chainage.position !== 'Toàn tuyến' ? ` (${chainage.position})` : '';
+          cellContent += `
+            <div class="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-700/60 text-[10px] font-mono leading-none" title="${escapeHtml(chainage.note || '')}">
+              <i class="fa-solid fa-location-dot text-cyan-400 text-[9px]"></i>
+              <span>${escapeHtml(from)} &rarr; ${escapeHtml(to)}${escapeHtml(pos)}</span>
+            </div>
+          `;
+        }
+
+        msCellsHtml += `
+          <td class="matrix-cell p-2 text-center border-r border-slate-800 cursor-pointer transition hover:bg-cyan-900/30 group relative ${qty > 0 ? 'bg-slate-900/40' : ''}"
+              data-item-id="${escapeHtml(item.id)}"
+              data-ms-id="${escapeHtml(ms.id)}"
+              title="Nhấp để xem hoặc nhập tay khối lượng & lý trình">
+            ${cellContent}
+            <span class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition text-[9px] text-cyan-400">
+              <i class="fa-solid fa-pen"></i>
+            </span>
+          </td>
+        `;
+      });
+
+      const remaining = contractQty - cumTotal;
+      const pct = contractQty > 0 ? (cumTotal / contractQty) * 100 : 0;
+      const isOver = cumTotal > contractQty && contractQty > 0;
+
+      return `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="p-2.5 text-center font-mono text-slate-400 sticky left-0 z-10 bg-slate-900/95 border-r border-slate-800">${idx + 1}</td>
+          <td class="p-2.5 text-center font-mono font-bold text-emerald-400 sticky left-12 z-10 bg-slate-900/95 border-r border-slate-800">${escapeHtml(item.code)}</td>
+          <td class="p-2.5 font-sans font-medium text-slate-200 border-r border-slate-800">
+            <div>${escapeHtml(item.name)}</div>
+          </td>
+          <td class="p-2.5 text-center font-mono text-slate-400 border-r border-slate-800">${escapeHtml(item.unit)}</td>
+          <td class="p-2.5 text-right font-mono font-semibold text-white border-r border-slate-800">${formatQty(contractQty)}</td>
+          ${msCellsHtml}
+          <td class="p-2.5 text-right font-mono font-bold ${isOver ? 'text-rose-400' : 'text-emerald-400'} border-r border-slate-800">
+            ${formatQty(cumTotal)}
+            ${isOver ? '<div class="text-[9px] text-rose-400 font-sans font-normal">(Vượt HĐ)</div>' : ''}
+          </td>
+          <td class="p-2.5 text-right font-mono font-medium ${remaining < 0 ? 'text-rose-400' : 'text-amber-300'} border-r border-slate-800">
+            ${formatQty(remaining)}
+          </td>
+          <td class="p-2.5 text-center font-mono">
+            <span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold ${pct >= 100 ? 'bg-emerald-500/20 text-emerald-300' : (pct > 0 ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-500')}">
+              ${pct.toFixed(1)}%
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join('');
   },
 
   // --- 6. RENDER PRINT CANVAS ---
@@ -573,6 +719,7 @@ const UIRenderer = {
     this.renderDashboardTab();
     this.renderBOQTab();
     this.renderPaymentTab();
+    this.renderMatrixTab();
     this.renderRemainingTab();
     this.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
   }
