@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CONSTRUCTION PAYMENT TRACKER PRO - UI RENDERER (PART 1)
  */
 
@@ -112,16 +112,20 @@ const UIRenderer = {
     const project = getActiveProject();
     if (!project) return;
 
-    document.getElementById('proj-name').value = project.info.name || '';
-    document.getElementById('proj-code').value = project.info.code || '';
-    document.getElementById('proj-package').value = project.info.package || '';
-    document.getElementById('proj-investor').value = project.info.investor || '';
-    document.getElementById('proj-contractor').value = project.info.contractor || '';
-    document.getElementById('proj-supervision').value = project.info.supervision || '';
-    document.getElementById('proj-contract-no').value = project.info.contractNo || '';
-    document.getElementById('proj-advance-pct').value = project.info.advancePct || 20;
-    document.getElementById('proj-retention-pct').value = project.info.retentionPct || 5;
-    document.getElementById('proj-advance-amount').value = project.info.advanceAmount || 0;
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    };
+    setVal('proj-name', project.info.name || '');
+    setVal('proj-code', project.info.code || '');
+    setVal('proj-package', project.info.package || '');
+    setVal('proj-investor', project.info.investor || '');
+    setVal('proj-contractor', project.info.contractor || '');
+    setVal('proj-supervision', project.info.supervision || '');
+    setVal('proj-contract-no', project.info.contractNo || '');
+    setVal('proj-advance-pct', project.info.advancePct || 20);
+    setVal('proj-retention-pct', project.info.retentionPct || 5);
+    setVal('proj-advance-amount', project.info.advanceAmount || 0);
 
     const tbody = document.getElementById('boq-table-body');
     if (!tbody) return;
@@ -236,16 +240,20 @@ const UIRenderer = {
       return;
     }
 
-    document.getElementById('ms-name').value = activeMs.name || '';
-    document.getElementById('ms-code').value = activeMs.code || '';
-    document.getElementById('ms-start-date').value = activeMs.startDate || '';
-    document.getElementById('ms-end-date').value = activeMs.endDate || '';
-    document.getElementById('ms-submission-date').value = activeMs.submissionDate || '';
-    document.getElementById('ms-status').value = activeMs.status || 'draft';
-    document.getElementById('ms-adv-rate').value = activeMs.advanceDeductionRate !== undefined ? activeMs.advanceDeductionRate : (project.info.advancePct || 20);
-    document.getElementById('ms-ret-rate').value = activeMs.retentionRate !== undefined ? activeMs.retentionRate : (project.info.retentionPct || 5);
-    document.getElementById('ms-other-deductions').value = activeMs.otherDeductions || 0;
-    document.getElementById('ms-paid-amount').value = activeMs.paidAmount || 0;
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    };
+    setVal('ms-name', activeMs.name || '');
+    setVal('ms-code', activeMs.code || '');
+    setVal('ms-start-date', activeMs.startDate || '');
+    setVal('ms-end-date', activeMs.endDate || '');
+    setVal('ms-submission-date', activeMs.submissionDate || '');
+    setVal('ms-status', activeMs.status || 'draft');
+    setVal('ms-adv-rate', activeMs.advanceDeductionRate !== undefined ? activeMs.advanceDeductionRate : (project.info.advancePct || 20));
+    setVal('ms-ret-rate', activeMs.retentionRate !== undefined ? activeMs.retentionRate : (project.info.retentionPct || 5));
+    setVal('ms-other-deductions', activeMs.otherDeductions || 0);
+    setVal('ms-paid-amount', activeMs.paidAmount || 0);
 
     const fin = Calculator.calculateMilestoneFinancials(project, activeMs);
     const tbody = document.getElementById('payment-table-body');
