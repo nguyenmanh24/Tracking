@@ -123,9 +123,13 @@ const UIRenderer = {
     setVal('proj-contractor', project.info.contractor || '');
     setVal('proj-supervision', project.info.supervision || '');
     setVal('proj-contract-no', project.info.contractNo || '');
-    setVal('proj-advance-pct', project.info.advancePct || 20);
-    setVal('proj-retention-pct', project.info.retentionPct || 5);
+    setVal('proj-advance-pct', project.info.advancePct || 0);
+    setVal('proj-retention-pct', project.info.retentionPct || 0);
     setVal('proj-advance-amount', project.info.advanceAmount || 0);
+    setVal('proj-commander', project.info.commander || '');
+    setVal('proj-qs-engineer', project.info.qsEngineer || '');
+    setVal('proj-supervision-chief', project.info.supervisionChief || '');
+    setVal('proj-investor-rep', project.info.investorRep || '');
 
     const tbody = document.getElementById('boq-table-body');
     if (!tbody) return;
@@ -250,8 +254,9 @@ const UIRenderer = {
     setVal('ms-end-date', activeMs.endDate || '');
     setVal('ms-submission-date', activeMs.submissionDate || '');
     setVal('ms-status', activeMs.status || 'draft');
-    setVal('ms-adv-rate', activeMs.advanceDeductionRate !== undefined ? activeMs.advanceDeductionRate : (project.info.advancePct || 20));
-    setVal('ms-ret-rate', activeMs.retentionRate !== undefined ? activeMs.retentionRate : (project.info.retentionPct || 5));
+    setVal('ms-adv-rate', activeMs.advanceDeductionRate !== undefined ? activeMs.advanceDeductionRate : (project.info.advancePct || 0));
+    setVal('ms-custom-advance', activeMs.customAdvanceDeduction || '');
+    setVal('ms-ret-rate', activeMs.retentionRate !== undefined ? activeMs.retentionRate : (project.info.retentionPct || 0));
     setVal('ms-other-deductions', activeMs.otherDeductions || 0);
     setVal('ms-paid-amount', activeMs.paidAmount || 0);
 
@@ -813,11 +818,11 @@ const UIRenderer = {
               <td class="border border-gray-400 p-1.5 text-right font-mono">${formatVND(fin.grossThisPeriod)} đ</td>
             </tr>
             <tr>
-              <td colspan="10" class="border border-gray-400 p-1 text-right">Giảm trừ thu hồi tạm ứng (${activeMs.advanceDeductionRate || project.info.advancePct}%):</td>
+              <td colspan="10" class="border border-gray-400 p-1 text-right">Giảm trừ thu hồi tạm ứng (${activeMs.customAdvanceDeduction && parseFlexibleNumber(activeMs.customAdvanceDeduction) > 0 ? 'Số tiền ấn định' : ((activeMs.advanceDeductionRate !== undefined ? activeMs.advanceDeductionRate : (project.info.advancePct || 0)) + '%')}):</td>
               <td class="border border-gray-400 p-1 text-right font-mono text-red-600">-${formatVND(fin.advanceDeduction)} đ</td>
             </tr>
             <tr>
-              <td colspan="10" class="border border-gray-400 p-1 text-right">Giảm trừ giữ lại bảo hành công trình (${activeMs.retentionRate || project.info.retentionPct}%):</td>
+              <td colspan="10" class="border border-gray-400 p-1 text-right">Giảm trừ giữ lại bảo hành công trình (${(activeMs.retentionRate !== undefined ? activeMs.retentionRate : (project.info.retentionPct || 0)) > 0 ? ((activeMs.retentionRate !== undefined ? activeMs.retentionRate : project.info.retentionPct) + '%') : '0% - Bảo lãnh NH'}):</td>
               <td class="border border-gray-400 p-1 text-right font-mono text-red-600">-${formatVND(fin.retentionDeduction)} đ</td>
             </tr>
             ${fin.otherDeductions > 0 ? `
@@ -836,17 +841,17 @@ const UIRenderer = {
           <div>
             <p class="font-bold uppercase">ĐẠI DIỆN NHÀ THẦU</p>
             <p class="text-[11px] text-gray-500 italic mb-16">(Ký, ghi rõ họ tên và đóng dấu)</p>
-            <p class="font-bold">${escapeHtml(project.info.commander || 'Chỉ huy trưởng')}</p>
+            <p class="font-bold">${escapeHtml(project.info.commander || '...................')}</p>
           </div>
           <div>
             <p class="font-bold uppercase">TƯ VẤN GIÁM SÁT</p>
             <p class="text-[11px] text-gray-500 italic mb-16">(Ký, ghi rõ họ tên)</p>
-            <p class="font-bold">${escapeHtml(project.info.supervisionChief || 'Tư vấn giám sát trưởng')}</p>
+            <p class="font-bold">${escapeHtml(project.info.supervisionChief || '...................')}</p>
           </div>
           <div>
             <p class="font-bold uppercase">ĐẠI DIỆN CHỦ ĐẦU TƯ</p>
             <p class="text-[11px] text-gray-500 italic mb-16">(Ký, ghi rõ họ tên và đóng dấu)</p>
-            <p class="font-bold">${escapeHtml(project.info.investorRep || 'Giám đốc Ban QLDA')}</p>
+            <p class="font-bold">${escapeHtml(project.info.investorRep || '...................')}</p>
           </div>
         </div>
       `;

@@ -200,15 +200,20 @@ document.addEventListener('DOMContentLoaded', () => {
     UIRenderer.renderHeaderAndKPIs();
   };
 
-  ['proj-name', 'proj-code', 'proj-package', 'proj-investor', 'proj-contractor', 'proj-supervision', 'proj-contract-no'].forEach(id => {
+  ['proj-name', 'proj-code', 'proj-package', 'proj-investor', 'proj-contractor', 'proj-supervision', 'proj-contract-no', 'proj-commander', 'proj-qs-engineer', 'proj-supervision-chief', 'proj-investor-rep'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       const fieldMap = {
         'proj-name': 'name', 'proj-code': 'code', 'proj-package': 'package',
         'proj-investor': 'investor', 'proj-contractor': 'contractor',
-        'proj-supervision': 'supervision', 'proj-contract-no': 'contractNo'
+        'proj-supervision': 'supervision', 'proj-contract-no': 'contractNo',
+        'proj-commander': 'commander', 'proj-qs-engineer': 'qsEngineer',
+        'proj-supervision-chief': 'supervisionChief', 'proj-investor-rep': 'investorRep'
       };
-      el.addEventListener('change', e => updateProjectField(fieldMap[id], e.target.value));
+      el.addEventListener('change', e => {
+        updateProjectField(fieldMap[id], e.target.value);
+        UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
+      });
     }
   });
 
@@ -221,8 +226,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'proj-advance-amount': 'advanceAmount'
       };
       el.addEventListener('change', e => {
-        updateProjectField(fieldMap[id], parseFloat(e.target.value) || 0);
+        updateProjectField(fieldMap[id], parseFlexibleNumber(e.target.value));
         UIRenderer.renderPaymentTab();
+        UIRenderer.renderValueSummaryTab();
+        UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
       });
     }
   });
@@ -258,21 +265,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  ['ms-adv-rate', 'ms-ret-rate', 'ms-other-deductions', 'ms-paid-amount'].forEach(id => {
+  ['ms-adv-rate', 'ms-custom-advance', 'ms-ret-rate', 'ms-other-deductions', 'ms-paid-amount'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       const fieldMap = {
         'ms-adv-rate': 'advanceDeductionRate',
+        'ms-custom-advance': 'customAdvanceDeduction',
         'ms-ret-rate': 'retentionRate',
         'ms-other-deductions': 'otherDeductions',
         'ms-paid-amount': 'paidAmount'
       };
       el.addEventListener('change', e => {
-        updateMilestoneField(fieldMap[id], parseFloat(e.target.value) || 0);
+        updateMilestoneField(fieldMap[id], parseFlexibleNumber(e.target.value));
         UIRenderer.renderPaymentTab();
+        UIRenderer.renderValueSummaryTab();
+        UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
       });
     }
   });
+
+  const btnZeroRetention = document.getElementById('btn-toggle-zero-retention');
+  if (btnZeroRetention) {
+    btnZeroRetention.addEventListener('click', () => {
+      const activeMs = getActiveMilestone();
+      if (!activeMs) return;
+      activeMs.retentionRate = 0;
+      saveAppState();
+      UIRenderer.renderPaymentTab();
+      UIRenderer.renderValueSummaryTab();
+      UIRenderer.renderPrintCanvas(AppState.activePrintDoc || 'pl03a');
+      showToast('Đã đặt giữ bảo hành về 0% (Dùng bảo lãnh ngân hàng)!', 'info');
+    });
+  }
 
   // 12. Export Full Project Excel
   const btnExportExcel = document.getElementById('btn-export-full-excel');
@@ -488,13 +512,13 @@ function initExcelImportModal() {
         if (!name) continue;
 
         const rawQty = row[colQty];
-        const qty = parseFloat(String(rawQty).replace(/,/g, '')) || 0;
+        const qty = parseFlexibleNumber(rawQty);
         if (qty <= 0) continue;
 
         const code = colCode !== -1 ? String(row[colCode] || '').trim() : `CV.${r}`;
         const unit = colUnit !== -1 ? String(row[colUnit] || '').trim() : 'm3';
         const rawPrice = colPrice !== -1 ? row[colPrice] : 0;
-        const price = parseFloat(String(rawPrice).replace(/,/g, '')) || 0;
+        const price = parseFlexibleNumber(rawPrice);
 
         newBOQ.push({
           id: `boq_${Date.now()}_${r}`,

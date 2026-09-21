@@ -374,7 +374,7 @@ const ExcelService = {
       const rawQty = row[colQty];
       if (rawQty === undefined || rawQty === null || rawQty === '') continue;
 
-      const qty = parseFloat(String(rawQty).replace(/,/g, '').trim());
+      const qty = parseFlexibleNumber(rawQty);
       if (isNaN(qty) || qty <= 0) continue;
 
       const rawChainage = colChainage !== -1 ? String(row[colChainage] || '').trim() : '';

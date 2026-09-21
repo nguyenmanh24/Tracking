@@ -291,14 +291,45 @@ function escapeHtml(str) {
 // Helper: Format Currency (VND)
 function formatVND(amount) {
   if (amount === null || amount === undefined || isNaN(amount)) return '0';
-  return Math.round(amount).toLocaleString('vi-VN');
+  return Math.round(Number(amount)).toLocaleString('vi-VN');
 }
 
-// Helper: Format Decimal Quantity (up to 3 decimal places without trailing zeroes)
+// Helper: Parse Number linh hoạt (chuẩn cả Excel Việt Nam dấu phẩy và Quốc tế dấu chấm, giữ trọn vẹn số lẻ)
+function parseFlexibleNumber(raw) {
+  if (raw === null || raw === undefined || raw === '') return 0;
+  if (typeof raw === 'number') return isNaN(raw) ? 0 : raw;
+  let s = String(raw).trim();
+  if (!s) return 0;
+
+  // Xóa khoảng trắng không ngắt (non-breaking spaces \u00A0) thường có trong Excel
+  s = s.replace(/\s+/g, '').replace(/\u00A0/g, '');
+
+  if (s.includes('.') && s.includes(',')) {
+    const lastDot = s.lastIndexOf('.');
+    const lastComma = s.lastIndexOf(',');
+    if (lastComma > lastDot) {
+      // Chuẩn Việt Nam: 1.234.567,89 -> xóa chấm, đổi phẩy thành chấm
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else {
+      // Chuẩn Mỹ: 1,234,567.89 -> xóa phẩy
+      s = s.replace(/,/g, '');
+    }
+  } else if (s.includes(',')) {
+    // Chỉ có dấu phẩy: ví dụ "12,54" hoặc "0,025" -> dấu phẩy là số thập phân
+    s = s.replace(',', '.');
+  }
+
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+// Helper: Format Decimal Quantity (Giữ nguyên toàn bộ số thập phân vốn có trong bảng tính, tối đa 10 chữ số thập phân)
 function formatQty(qty) {
-  if (qty === null || qty === undefined || isNaN(qty)) return '0';
-  const num = parseFloat(qty);
-  return Number(num.toFixed(3)).toLocaleString('vi-VN');
+  if (qty === null || qty === undefined || qty === '' || isNaN(qty)) return '0';
+  const num = Number(qty);
+  if (num === 0) return '0';
+  // Giữ nguyên toàn bộ số thập phân, không tự ý làm tròn hay cắt xén
+  return num.toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 10 });
 }
 
 // Helper: Format Date

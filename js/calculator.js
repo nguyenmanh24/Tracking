@@ -54,34 +54,34 @@ const Calculator = {
 
   // 3. Calculate Item Detailed Metrics for a given Milestone
   calculateMilestoneItem(project, milestone, item) {
-    const origQty = parseFloat(item.contractQty) || 0;
-    const varQty = parseFloat(item.variationQty) || 0;
+    const origQty = parseFlexibleNumber(item.contractQty);
+    const varQty = parseFlexibleNumber(item.variationQty);
     const totalApprovedQty = origQty + varQty;
-    const unitPrice = parseFloat(item.unitPrice) || 0;
+    const unitPrice = parseFlexibleNumber(item.unitPrice);
 
     const prevQty = this.getCumulativeQtyBefore(project, milestone.id, item.id);
-    const thisPeriodQty = parseFloat(milestone.quantities[item.id]) || 0;
+    const thisPeriodQty = parseFlexibleNumber(milestone.quantities ? milestone.quantities[item.id] : 0);
     const totalCumulativeQty = prevQty + thisPeriodQty;
     
     // Remaining Quantity and Value
     const remainingQty = totalApprovedQty - totalCumulativeQty;
-    const remainingValue = remainingQty > 0 ? (remainingQty * unitPrice) : 0;
+    const remainingValue = remainingQty > 0 ? Math.round(remainingQty * unitPrice) : 0;
 
-    // Monetary Amounts
-    const prevAmount = prevQty * unitPrice;
-    const thisPeriodAmount = thisPeriodQty * unitPrice;
-    const totalCumulativeAmount = totalCumulativeQty * unitPrice;
+    // Monetary Amounts (Làm tròn chuẩn số nguyên đồng VND cho từng công tác)
+    const prevAmount = Math.round(prevQty * unitPrice);
+    const thisPeriodAmount = Math.round(thisPeriodQty * unitPrice);
+    const totalCumulativeAmount = Math.round(totalCumulativeQty * unitPrice);
 
     // Percentage of completion
     const completionPct = totalApprovedQty > 0 ? (totalCumulativeQty / totalApprovedQty) * 100 : 0;
 
-    // Overrun detection (precision tolerance 0.0001)
-    const isOverrun = totalCumulativeQty > (totalApprovedQty + 0.0001);
+    // Overrun detection (precision tolerance 0.00001)
+    const isOverrun = totalCumulativeQty > (totalApprovedQty + 0.00001);
     const overrunQty = isOverrun ? (totalCumulativeQty - totalApprovedQty) : 0;
-    const overrunAmount = overrunQty * unitPrice;
+    const overrunAmount = Math.round(overrunQty * unitPrice);
 
     // Fully completed flag
-    const isCompleted = Math.abs(remainingQty) < 0.0001;
+    const isCompleted = Math.abs(remainingQty) < 0.00001;
 
     return {
       itemId: item.id,
@@ -137,27 +137,30 @@ const Calculator = {
       return row;
     });
 
-    // Advance Deduction Calculation
+    // Advance Deduction Calculation (Thu hồi tạm ứng: theo số tiền trực tiếp hoặc theo %)
     let advanceDeduction = 0;
-    if (milestone.customAdvanceDeduction !== null && milestone.customAdvanceDeduction !== undefined && milestone.customAdvanceDeduction !== '') {
-      advanceDeduction = parseFloat(milestone.customAdvanceDeduction) || 0;
+    if (milestone.customAdvanceDeduction !== null && milestone.customAdvanceDeduction !== undefined && milestone.customAdvanceDeduction !== '' && parseFlexibleNumber(milestone.customAdvanceDeduction) > 0) {
+      advanceDeduction = Math.round(parseFlexibleNumber(milestone.customAdvanceDeduction));
     } else {
-      const advPct = milestone.advanceDeductionRate !== undefined ? milestone.advanceDeductionRate : (project.info.advancePct || 0);
-      advanceDeduction = grossThisPeriod * (advPct / 100);
+      const advPct = milestone.advanceDeductionRate !== undefined ? parseFlexibleNumber(milestone.advanceDeductionRate) : (parseFlexibleNumber(project.info.advancePct) || 0);
+      advanceDeduction = Math.round(grossThisPeriod * (advPct / 100));
     }
 
-    // Retention Deduction (Bảo hành công trình)
-    const retPct = milestone.retentionRate !== undefined ? milestone.retentionRate : (project.info.retentionPct || 5);
-    const retentionDeduction = grossThisPeriod * (retPct / 100);
+    // Retention Deduction (Bảo hành công trình: tự nhập % hoặc 0% nếu dùng bảo lãnh)
+    let retentionDeduction = 0;
+    const retPct = milestone.retentionRate !== undefined ? parseFlexibleNumber(milestone.retentionRate) : (parseFlexibleNumber(project.info.retentionPct) || 0);
+    if (retPct > 0) {
+      retentionDeduction = Math.round(grossThisPeriod * (retPct / 100));
+    }
 
     // Other Deductions (Phạt vi phạm, điện nước, vật tư CĐT cấp...)
-    const otherDeductions = parseFloat(milestone.otherDeductions) || 0;
+    const otherDeductions = Math.round(parseFlexibleNumber(milestone.otherDeductions));
 
     // Net Payment Requested This Period
-    const netPayment = grossThisPeriod - advanceDeduction - retentionDeduction - otherDeductions;
+    const netPayment = Math.max(0, grossThisPeriod - advanceDeduction - retentionDeduction - otherDeductions);
 
     // Paid amount & Remaining balance owed by investor for this milestone
-    const paidAmount = parseFloat(milestone.paidAmount) || 0;
+    const paidAmount = Math.round(parseFlexibleNumber(milestone.paidAmount));
     const balanceDue = netPayment - paidAmount;
 
     return {
